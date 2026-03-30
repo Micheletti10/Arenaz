@@ -1,14 +1,11 @@
 import type {
-  CharacterType,
   GameMode,
   GameState,
   PlayerState,
   BulletState,
-  PulseGrenadeState,
   KillFeedEntry,
   InputPayload,
   Rect,
-  Team,
   RoomState,
   GameOverData,
   MatchPhase,
@@ -18,115 +15,51 @@ import type {
   AugmentDefinition,
   DraftState,
   RoundResultState,
+  TeamState,
+  RoundMatchup,
 } from "@arenaz/types";
 import {
-  MAP_WIDTH,
-  MAP_HEIGHT,
-  WALL_THICKNESS,
-  TICK_MS,
-  RESPAWN_DELAY_MS,
-  PLAYER_RADIUS,
-  BULLET_SPEED,
-  BULLET_RADIUS,
-  SHOOT_COOLDOWN_MS,
-  BRUISER_HP,
-  BRUISER_SPEED,
-  BRUISER_DAMAGE,
-  BRUISER_PASSIVE_THRESHOLD,
-  BRUISER_PASSIVE_REDUCTION,
-  BRUISER_BASH_COOLDOWN_MS,
-  BRUISER_BASH_RANGE,
-  BRUISER_BASH_KNOCKBACK,
-  PHANTOM_HP,
-  PHANTOM_SPEED,
-  PHANTOM_DAMAGE,
-  PHANTOM_BLINK_BONUS,
-  PHANTOM_BLINK_COOLDOWN_MS,
-  PHANTOM_BLINK_DISTANCE,
-  WARDEN_HP,
-  WARDEN_SPEED,
-  WARDEN_DAMAGE,
-  WARDEN_HEAL_RATE,
-  WARDEN_HEAL_DELAY_MS,
-  WARDEN_GRENADE_COOLDOWN_MS,
-  WARDEN_GRENADE_RADIUS,
-  WARDEN_GRENADE_DURATION_MS,
-  WARDEN_GRENADE_SLOW,
-  WARDEN_GRENADE_RANGE,
-  KILL_FEED_MAX,
-  KILL_FEED_DURATION_MS,
-  TOTAL_ROUNDS,
-  AUG_ATTACK_BOOST,
-  AUG_SPEED_BOOST,
-  AUG_SPEED_CAP,
-  AUG_HP_BOOST,
-  AUG_ATTACK_SPEED_BOOST,
-  AUG_ATTACK_SPEED_FLOOR_MS,
-  AUG_CRIT_CHANCE,
-  AUG_CRIT_MULTIPLIER,
-  AUG_CRIT_CAP,
-  AUG_MULTISHOT_SPREAD,
-  AUG_MULTISHOT_DAMAGE_PENALTY,
-  AUG_RICOCHET_DAMAGE_PENALTY,
-  AUG_RICOCHET_RANGE,
-  AUG_PIERCING_DAMAGE_PENALTY,
-  AUG_BOUNCY_WALL_BOUNCES,
-  AUG_BOUNCY_WALL_DAMAGE_PENALTY,
-  AUG_FREEZE_SLOW,
-  AUG_FREEZE_DURATION_MS,
-  AUG_BLAZE_DPS_PERCENT,
-  AUG_BLAZE_DURATION_MS,
-  AUG_FRONT_ARROW_DAMAGE_PENALTY,
-  AUG_SIDE_ARROWS_ANGLE,
-  AUG_SIDE_ARROWS_DAMAGE_PENALTY,
-  AUG_DEATH_NOVA_PROJECTILES,
-  AUG_DEATH_NOVA_DAMAGE_PERCENT,
-  AUG_SHIELD_GUARD_COOLDOWN_MS,
-  AUG_GIANT_DAMAGE_BOOST,
-  AUG_GIANT_HP_BOOST,
-  AUG_GIANT_RADIUS_MULTIPLIER,
-  AUG_ARMOR_BOOST,
-  AUG_RANGE_BOOST_SMALL,
-  AUG_RANGE_BOOST_MEDIUM,
-  AUG_SNIPER_RANGE,
-  AUG_MULTISHOT_SPREAD_BASE,
-  BASE_BULLET_RANGE,
-  ARMOR_FORMULA_CONSTANT,
-  DRAFT_REROLLS_PER_CARD,
-  COMBAT_DURATION_S,
-  DRAFT_DURATION_MS,
-  ROUND_RESULT_DURATION_MS,
-  DRAFT_CARDS_OFFERED,
+  MAP_WIDTH, MAP_HEIGHT, WALL_THICKNESS, TICK_MS,
+  PLAYER_RADIUS, BULLET_SPEED, BULLET_RADIUS, SHOOT_COOLDOWN_MS,
+  KILL_FEED_MAX, KILL_FEED_DURATION_MS,
+  MAX_ROUNDS, COMBAT_DURATION_S, DRAFT_DURATION_MS, ROUND_RESULT_DURATION_MS,
+  DRAFT_REROLLS_PER_CARD, DRAFT_CARDS_OFFERED,
+  BASE_PLAYER_HP, BASE_PLAYER_SPEED, BASE_PLAYER_DAMAGE,
+  MAX_LEVEL, HP_PER_LEVEL, DAMAGE_PER_LEVEL, SPEED_PER_LEVEL,
+  TEAM_HEALTH_START, TEAM_DAMAGE_SCHEDULE,
+  FFA_TEAM_COLORS, FFA_TEAM_COLOR_NAMES, DUO_TEAM_COLORS, DUO_TEAM_COLOR_NAMES,
+  BASE_BULLET_RANGE, ARMOR_FORMULA_CONSTANT,
+  AUG_ATTACK_BOOST, AUG_SPEED_BOOST, AUG_SPEED_CAP, AUG_HP_BOOST,
+  AUG_ATTACK_SPEED_BOOST, AUG_ATTACK_SPEED_FLOOR_MS,
+  AUG_CRIT_CHANCE, AUG_CRIT_MULTIPLIER, AUG_CRIT_CAP,
+  AUG_ARMOR_BOOST, AUG_RANGE_BOOST_SMALL, AUG_RANGE_BOOST_MEDIUM, AUG_SNIPER_RANGE,
+  AUG_MULTISHOT_SPREAD_BASE, AUG_MULTISHOT_DAMAGE_PENALTY,
+  AUG_RICOCHET_DAMAGE_PENALTY, AUG_RICOCHET_RANGE,
+  AUG_PIERCING_DAMAGE_PENALTY, AUG_BOUNCY_WALL_BOUNCES, AUG_BOUNCY_WALL_DAMAGE_PENALTY,
+  AUG_FREEZE_SLOW, AUG_FREEZE_DURATION_MS, AUG_BLAZE_DPS_PERCENT, AUG_BLAZE_DURATION_MS,
+  AUG_FRONT_ARROW_DAMAGE_PENALTY, AUG_SIDE_ARROWS_ANGLE, AUG_SIDE_ARROWS_DAMAGE_PENALTY,
+  AUG_DEATH_NOVA_PROJECTILES, AUG_DEATH_NOVA_DAMAGE_PERCENT,
+  AUG_SHIELD_GUARD_COOLDOWN_MS, AUG_GIANT_DAMAGE_BOOST, AUG_GIANT_HP_BOOST, AUG_GIANT_RADIUS_MULTIPLIER,
 } from "@arenaz/types/src/constants.js";
 
 // ── Map walls ──
-
 const walls: Rect[] = [
   { x: 0, y: 0, w: MAP_WIDTH, h: WALL_THICKNESS },
   { x: 0, y: MAP_HEIGHT - WALL_THICKNESS, w: MAP_WIDTH, h: WALL_THICKNESS },
   { x: 0, y: 0, w: WALL_THICKNESS, h: MAP_HEIGHT },
   { x: MAP_WIDTH - WALL_THICKNESS, y: 0, w: WALL_THICKNESS, h: MAP_HEIGHT },
-  { x: 300, y: 250, w: 200, h: 30 },
-  { x: 1100, y: 250, w: 200, h: 30 },
-  { x: 300, y: 920, w: 200, h: 30 },
-  { x: 1100, y: 920, w: 200, h: 30 },
-  { x: 750, y: 500, w: 100, h: 30 },
-  { x: 750, y: 670, w: 100, h: 30 },
-  { x: 700, y: 550, w: 30, h: 100 },
-  { x: 870, y: 550, w: 30, h: 100 },
-  { x: 200, y: 550, w: 40, h: 100 },
-  { x: 1360, y: 550, w: 40, h: 100 },
-  { x: 100, y: 100, w: 60, h: 60 },
-  { x: MAP_WIDTH - 160, y: 100, w: 60, h: 60 },
-  { x: 100, y: MAP_HEIGHT - 160, w: 60, h: 60 },
-  { x: MAP_WIDTH - 160, y: MAP_HEIGHT - 160, w: 60, h: 60 },
+  { x: 300, y: 250, w: 200, h: 30 }, { x: 1100, y: 250, w: 200, h: 30 },
+  { x: 300, y: 920, w: 200, h: 30 }, { x: 1100, y: 920, w: 200, h: 30 },
+  { x: 750, y: 500, w: 100, h: 30 }, { x: 750, y: 670, w: 100, h: 30 },
+  { x: 700, y: 550, w: 30, h: 100 }, { x: 870, y: 550, w: 30, h: 100 },
+  { x: 200, y: 550, w: 40, h: 100 }, { x: 1360, y: 550, w: 40, h: 100 },
+  { x: 100, y: 100, w: 60, h: 60 }, { x: MAP_WIDTH - 160, y: 100, w: 60, h: 60 },
+  { x: 100, y: MAP_HEIGHT - 160, w: 60, h: 60 }, { x: MAP_WIDTH - 160, y: MAP_HEIGHT - 160, w: 60, h: 60 },
 ];
 
 const INPUT_STALE_MS = 150;
 
 // ── Augment definitions ──
-
-// Augment tier is random each round (equal chance: 33.3% each)
 function randomTier(): AugmentTier {
   const roll = Math.random();
   if (roll < 1 / 3) return "Silver";
@@ -135,131 +68,87 @@ function randomTier(): AugmentTier {
 }
 
 const ALL_AUGMENTS: AugmentDefinition[] = [
-  // Silver (stackable)
   { id: "AttackBoost", name: "Attack Boost", tier: "Silver", description: "+15% damage", stackable: true },
   { id: "SpeedBoost", name: "Speed Boost", tier: "Silver", description: "+15% movement speed", stackable: true },
-  { id: "HpBoost", name: "HP Boost", tier: "Silver", description: "+20% max HP (heals to new max)", stackable: true },
+  { id: "HpBoost", name: "HP Boost", tier: "Silver", description: "+20% max HP", stackable: true },
   { id: "AttackSpeedBoost", name: "Attack Speed", tier: "Silver", description: "+15% fire rate", stackable: true },
-  { id: "CritChance", name: "Critical Hit", tier: "Silver", description: "+10% chance for 1.5x damage", stackable: true },
-  { id: "ArmorBoost", name: "Armor", tier: "Silver", description: "+15 armor (reduces incoming damage)", stackable: true },
-  { id: "RangeBoostSmall", name: "Range+", tier: "Silver", description: "+150 bullet range", stackable: true },
-  // Gold (non-stackable)
-  { id: "Multishot", name: "Multishot", tier: "Gold", description: "+1 extra bullet per shot (-15% damage each)", stackable: true },
-  { id: "RangeBoostMedium", name: "Extended Range", tier: "Gold", description: "+400 bullet range", stackable: false },
-  { id: "Ricochet", name: "Ricochet", tier: "Gold", description: "Bullets bounce to 1 nearby enemy (-30% damage)", stackable: false },
-  { id: "PiercingShot", name: "Piercing Shot", tier: "Gold", description: "Bullets pass through first enemy (-33% damage)", stackable: false },
-  { id: "BouncyWall", name: "Bouncy Wall", tier: "Gold", description: "Bullets bounce off walls 2x (-50% after bounce)", stackable: false },
-  { id: "Freeze", name: "Freeze", tier: "Gold", description: "Hits slow enemy by 30% for 1.5s", stackable: false },
-  { id: "Blaze", name: "Blaze", tier: "Gold", description: "Hits burn for 15% base damage/s for 2s", stackable: false },
-  // Prismatic (non-stackable)
-  { id: "FrontArrow", name: "Front Arrow", tier: "Prismatic", description: "+1 extra bullet forward, ALL bullets -25% damage", stackable: false },
-  { id: "SideArrows", name: "Side Arrows", tier: "Prismatic", description: "+2 bullets at 60° angles (-40% damage)", stackable: false },
-  { id: "DeathNova", name: "Death Nova", tier: "Prismatic", description: "Killed enemies explode into 6 projectiles", stackable: false },
-  { id: "ShieldGuard", name: "Shield Guard", tier: "Prismatic", description: "Orbiting shield blocks 1 bullet every 8s", stackable: false },
-  { id: "Giant", name: "Giant", tier: "Prismatic", description: "+40% damage, +5% HP, 35% larger hitbox", stackable: false },
-  { id: "Sniper", name: "Sniper", tier: "Prismatic", description: "Infinite bullet range", stackable: false },
+  { id: "CritChance", name: "Critical Hit", tier: "Silver", description: "+10% crit chance", stackable: true },
+  { id: "ArmorBoost", name: "Armor", tier: "Silver", description: "+15 armor", stackable: true },
+  { id: "RangeBoostSmall", name: "Range+", tier: "Silver", description: "+150 range", stackable: true },
+  { id: "Multishot", name: "Multishot", tier: "Gold", description: "+1 bullet per shot", stackable: true },
+  { id: "Ricochet", name: "Ricochet", tier: "Gold", description: "Bullets bounce to enemies", stackable: false },
+  { id: "PiercingShot", name: "Piercing", tier: "Gold", description: "Bullets pierce enemies", stackable: false },
+  { id: "BouncyWall", name: "Bouncy Wall", tier: "Gold", description: "Bullets bounce off walls", stackable: false },
+  { id: "Freeze", name: "Freeze", tier: "Gold", description: "Hits slow enemies", stackable: false },
+  { id: "Blaze", name: "Blaze", tier: "Gold", description: "Hits burn enemies", stackable: false },
+  { id: "RangeBoostMedium", name: "Extended Range", tier: "Gold", description: "+400 range", stackable: false },
+  { id: "FrontArrow", name: "Front Arrow", tier: "Prismatic", description: "+1 forward bullet", stackable: false },
+  { id: "SideArrows", name: "Side Arrows", tier: "Prismatic", description: "+2 side bullets", stackable: false },
+  { id: "DeathNova", name: "Death Nova", tier: "Prismatic", description: "Kill explosions", stackable: false },
+  { id: "ShieldGuard", name: "Shield Guard", tier: "Prismatic", description: "Block 1 bullet/8s", stackable: false },
+  { id: "Giant", name: "Giant", tier: "Prismatic", description: "+40% dmg, bigger hitbox", stackable: false },
+  { id: "Sniper", name: "Sniper", tier: "Prismatic", description: "Infinite range", stackable: false },
 ];
 
 // ── Internal types ──
-
 interface InternalPlayer {
-  id: string;
-  name: string;
-  x: number;
-  y: number;
-  hp: number;
-  maxHp: number;
-  character: CharacterType;
-  team: Team;
-  aimAngle: number;
-  alive: boolean;
-  kills: number;
-  deaths: number;
-  baseSpeed: number;
-  baseDamage: number;
-  input: InputPayload;
-  inputReceivedAt: number;
+  id: string; name: string;
+  x: number; y: number; hp: number; maxHp: number;
+  team: number; level: number;
+  aimAngle: number; alive: boolean; onBye: boolean;
+  kills: number; deaths: number; damageDealt: number;
+  baseSpeed: number; baseDamage: number;
+  input: InputPayload; inputReceivedAt: number;
   shootCooldownRemaining: number;
-  abilityCooldownRemaining: number;
-  abilityActive: boolean;
-  knockbackVx: number;
-  knockbackVy: number;
-  blinkBonusReady: boolean;
-  lastDamageTime: number;
-  respawnTimer: number;
-  slowMultiplier: number;
-  damageDealt: number;
-  damageFlashMs: number;
-  // Augments
+  knockbackVx: number; knockbackVy: number;
+  slowMultiplier: number; damageFlashMs: number;
   augments: AugmentId[];
-  // Computed from augments at round start
-  effectiveSpeed: number;
-  effectiveDamage: number;
-  effectiveMaxHp: number;
-  effectiveShootCooldown: number;
-  critChance: number;
-  armor: number;
-  effectiveRange: number; // 0 = infinite
-  playerRadius: number;
-  // Augment runtime state
-  shieldGuardActive: boolean;
-  shieldGuardCooldownMs: number;
-  freezeRemainingMs: number;
-  burnRemainingMs: number;
-  burnDamagePerTick: number;
+  effectiveSpeed: number; effectiveDamage: number; effectiveMaxHp: number;
+  effectiveShootCooldown: number; critChance: number; armor: number;
+  effectiveRange: number; playerRadius: number;
+  shieldGuardActive: boolean; shieldGuardCooldownMs: number;
+  freezeRemainingMs: number; burnRemainingMs: number; burnDamagePerTick: number;
 }
 
 interface InternalBullet {
-  id: string;
-  ownerId: string;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  damage: number;
-  bouncesRemaining: number;
-  piercing: boolean;
-  distanceTraveled: number;
-  maxRange: number; // 0 = infinite
+  id: string; ownerId: string;
+  x: number; y: number; vx: number; vy: number;
+  damage: number; bouncesRemaining: number; piercing: boolean;
+  distanceTraveled: number; maxRange: number;
 }
 
-interface InternalGrenade {
-  id: string;
-  ownerId: string;
-  x: number;
-  y: number;
-  radius: number;
-  remainingMs: number;
+interface InternalTeam {
+  teamNumber: number; health: number; eliminated: boolean;
+  eliminationOrder: number; playerIds: string[];
+  color: number; colorName: string;
 }
 
 interface ActiveGame {
-  roomCode: string;
-  gameMode: GameMode;
+  roomCode: string; gameMode: GameMode;
   players: Map<string, InternalPlayer>;
   bullets: InternalBullet[];
-  grenades: InternalGrenade[];
   killFeed: KillFeedEntry[];
   nextBulletId: number;
-  nextGrenadeId: number;
   intervalId: ReturnType<typeof setInterval>;
-  // Round system
-  phase: MatchPhase;
-  roundNumber: number;
-  roundTimeRemainingMs: number;
-  draftTimeRemainingMs: number;
-  resultTimeRemainingMs: number;
-  matchStartTime: number;
-  // Draft — per-player cards and rerolls (each player sees different cards)
-  playerDraftCards: Map<string, AugmentCard[]>; // playerId -> their 3 cards
-  playerCardRerolls: Map<string, number[]>; // playerId -> rerolls per card
+  tickCounter: number;
+  phase: MatchPhase; roundNumber: number;
+  roundTimeRemainingMs: number; draftTimeRemainingMs: number; resultTimeRemainingMs: number;
+  matchStartTime: number; currentLevel: number;
+  // Teams
+  teams: Map<number, InternalTeam>;
+  matchups: RoundMatchup[];
+  matchupHistory: Set<string>;
+  eliminationCounter: number;
+  // Draft (per-player)
+  playerDraftCards: Map<string, AugmentCard[]>;
+  playerCardRerolls: Map<string, number[]>;
   draftSelections: Map<string, AugmentId | null>;
   draftTier: AugmentTier;
   // Per-round kill tracking
   roundKills: Map<string, number>;
   totalKills: Map<string, number>;
   totalDeaths: Map<string, number>;
-  tickCounter: number;
-  // Broadcast callbacks
+  // Broadcasts
   broadcastGameState: (roomCode: string, state: GameState) => void;
   broadcastDraftStateToPlayer: (roomCode: string, playerId: string, state: DraftState) => void;
   broadcastRoundResult: (roomCode: string, state: RoundResultState) => void;
@@ -268,63 +157,25 @@ interface ActiveGame {
 
 const activeGames: Map<string, ActiveGame> = new Map();
 let bulletIdCounter = 0;
-let grenadeIdCounter = 0;
 
-// ── Character stats ──
-
-function getCharacterStats(character: CharacterType): { hp: number; speed: number; damage: number } {
-  switch (character) {
-    case "Bruiser": return { hp: BRUISER_HP, speed: BRUISER_SPEED, damage: BRUISER_DAMAGE };
-    case "Phantom": return { hp: PHANTOM_HP, speed: PHANTOM_SPEED, damage: PHANTOM_DAMAGE };
-    case "Warden": return { hp: WARDEN_HP, speed: WARDEN_SPEED, damage: WARDEN_DAMAGE };
-  }
+// ── Stats ──
+function getStatsForLevel(level: number): { hp: number; speed: number; damage: number } {
+  const lvl = Math.min(level, MAX_LEVEL);
+  return {
+    hp: BASE_PLAYER_HP + HP_PER_LEVEL * (lvl - 1),
+    speed: BASE_PLAYER_SPEED + SPEED_PER_LEVEL * (lvl - 1),
+    damage: BASE_PLAYER_DAMAGE + DAMAGE_PER_LEVEL * (lvl - 1),
+  };
 }
 
 // ── Spawns ──
-
-// Spawn points — verified to not collide with any wall at PLAYER_RADIUS
-const SPAWN_POINTS: { x: number; y: number }[] = [
+const SPAWN_POINTS = [
   { x: 250, y: 400 }, { x: 1350, y: 400 },
   { x: 250, y: 700 }, { x: 1350, y: 700 },
   { x: 800, y: 350 }, { x: 800, y: 850 },
 ];
 
-function getInitialSpawns(playerIds: string[], teams: Map<string, Team>, mode: GameMode): Map<string, { x: number; y: number }> {
-  const result = new Map<string, { x: number; y: number }>();
-  if (mode === "TeamDeathmatch") {
-    const ri = [0, 2, 4]; const bi = [1, 3, 5];
-    let rc = 0; let bc = 0;
-    for (const id of playerIds) {
-      const team = teams.get(id);
-      if (team === 1) { result.set(id, { ...SPAWN_POINTS[ri[rc++ % ri.length]] }); }
-      else { result.set(id, { ...SPAWN_POINTS[bi[bc++ % bi.length]] }); }
-    }
-  } else {
-    playerIds.forEach((id, i) => result.set(id, { ...SPAWN_POINTS[i % SPAWN_POINTS.length] }));
-  }
-  return result;
-}
-
-function getRespawnPosition(player: InternalPlayer, game: ActiveGame): { x: number; y: number } {
-  const indices = game.gameMode === "TeamDeathmatch" && player.team === 1
-    ? [0, 2, 4] : game.gameMode === "TeamDeathmatch" && player.team === 2
-      ? [1, 3, 5] : [0, 1, 2, 3, 4, 5];
-  const spawns = indices.map((i) => SPAWN_POINTS[i]);
-  let bestSpawn = spawns[0]; let bestMinDist = 0;
-  for (const spawn of spawns) {
-    let minDist = Infinity;
-    for (const other of game.players.values()) {
-      if (other.id === player.id || !other.alive) continue;
-      const d = (other.x - spawn.x) ** 2 + (other.y - spawn.y) ** 2;
-      minDist = Math.min(minDist, d);
-    }
-    if (minDist > bestMinDist) { bestMinDist = minDist; bestSpawn = spawn; }
-  }
-  return bestSpawn;
-}
-
 // ── Create game ──
-
 export function createGame(
   room: RoomState,
   broadcastGameState: (roomCode: string, state: GameState) => void,
@@ -333,100 +184,80 @@ export function createGame(
   broadcastGameOver: (roomCode: string, data: GameOverData) => void,
 ): void {
   const players = new Map<string, InternalPlayer>();
-  const teamMap = new Map<string, Team>();
-  for (const lp of room.players) teamMap.set(lp.id, lp.team);
-  const spawns = getInitialSpawns(room.players.map((p) => p.id), teamMap, room.gameMode);
-
+  const teams = new Map<number, InternalTeam>();
   const totalKills = new Map<string, number>();
   const totalDeaths = new Map<string, number>();
   const roundKills = new Map<string, number>();
 
-  room.players.forEach((lp) => {
-    const stats = getCharacterStats(lp.character!);
-    const spawn = spawns.get(lp.id) ?? { x: 400, y: 400 };
-    players.set(lp.id, createInternalPlayer(lp.id, lp.name, spawn.x, spawn.y, lp.character!, lp.team, stats));
-    totalKills.set(lp.id, 0);
-    totalDeaths.set(lp.id, 0);
-    roundKills.set(lp.id, 0);
+  // Build teams
+  const teamColors = room.gameMode === "FFA" ? FFA_TEAM_COLORS : DUO_TEAM_COLORS;
+  const teamNames = room.gameMode === "FFA" ? FFA_TEAM_COLOR_NAMES : DUO_TEAM_COLOR_NAMES;
+  const teamPlayerMap = new Map<number, string[]>();
+
+  for (const lp of room.players) {
+    if (!teamPlayerMap.has(lp.team)) teamPlayerMap.set(lp.team, []);
+    teamPlayerMap.get(lp.team)!.push(lp.id);
+  }
+
+  for (const [teamNum, playerIds] of teamPlayerMap.entries()) {
+    teams.set(teamNum, {
+      teamNumber: teamNum,
+      health: TEAM_HEALTH_START,
+      eliminated: false,
+      eliminationOrder: 0,
+      playerIds,
+      color: teamColors[(teamNum - 1) % teamColors.length],
+      colorName: teamNames[(teamNum - 1) % teamNames.length],
+    });
+  }
+
+  const stats = getStatsForLevel(1);
+  room.players.forEach((lp, i) => {
+    const spawn = SPAWN_POINTS[i % SPAWN_POINTS.length];
+    players.set(lp.id, createPlayer(lp.id, lp.name, spawn.x, spawn.y, lp.team, stats));
+    totalKills.set(lp.id, 0); totalDeaths.set(lp.id, 0); roundKills.set(lp.id, 0);
   });
 
   const game: ActiveGame = {
-    roomCode: room.code,
-    gameMode: room.gameMode,
-    players,
-    bullets: [],
-    grenades: [],
-    killFeed: [],
-    nextBulletId: 0,
-    nextGrenadeId: 0,
-    intervalId: null!,
-    phase: "draft",
-    roundNumber: 1,
+    roomCode: room.code, gameMode: room.gameMode,
+    players, bullets: [], killFeed: [],
+    nextBulletId: 0, intervalId: null!, tickCounter: 0,
+    phase: "draft", roundNumber: 1,
     roundTimeRemainingMs: COMBAT_DURATION_S * 1000,
     draftTimeRemainingMs: DRAFT_DURATION_MS,
     resultTimeRemainingMs: ROUND_RESULT_DURATION_MS,
-    matchStartTime: Date.now(),
-    playerDraftCards: new Map(),
-    playerCardRerolls: new Map(),
-    draftSelections: new Map(),
-    draftTier: "Silver",
-    tickCounter: 0,
-    roundKills,
-    totalKills,
-    totalDeaths,
-    broadcastGameState,
-    broadcastDraftStateToPlayer,
-    broadcastRoundResult,
-    broadcastGameOver,
+    matchStartTime: Date.now(), currentLevel: 1,
+    teams, matchups: [], matchupHistory: new Set(), eliminationCounter: 0,
+    playerDraftCards: new Map(), playerCardRerolls: new Map(),
+    draftSelections: new Map(), draftTier: "Silver",
+    roundKills, totalKills, totalDeaths,
+    broadcastGameState, broadcastDraftStateToPlayer, broadcastRoundResult, broadcastGameOver,
   };
 
-  // Start first draft phase
   startDraftPhase(game);
-
   game.intervalId = setInterval(() => tick(game), TICK_MS);
   activeGames.set(room.code, game);
-  console.log(`[game] started in ${room.code}, round 1 draft`);
 }
 
-function createInternalPlayer(
-  id: string, name: string, x: number, y: number,
-  character: CharacterType, team: Team,
-  stats: { hp: number; speed: number; damage: number }
-): InternalPlayer {
+function createPlayer(id: string, name: string, x: number, y: number, team: number, stats: { hp: number; speed: number; damage: number }): InternalPlayer {
   return {
-    id, name, x, y,
-    hp: stats.hp, maxHp: stats.hp,
-    character, team,
-    aimAngle: 0, alive: true,
+    id, name, x, y, hp: stats.hp, maxHp: stats.hp, team, level: 1,
+    aimAngle: 0, alive: true, onBye: false,
     kills: 0, deaths: 0, damageDealt: 0,
     baseSpeed: stats.speed, baseDamage: stats.damage,
-    input: { dx: 0, dy: 0, aimAngle: 0, shoot: false, ability: false },
-    inputReceivedAt: Date.now(),
-    shootCooldownRemaining: 0, abilityCooldownRemaining: 0,
-    abilityActive: false,
-    knockbackVx: 0, knockbackVy: 0,
-    blinkBonusReady: false, lastDamageTime: 0,
-    respawnTimer: 0, slowMultiplier: 1,
-    damageFlashMs: 0,
-    augments: [],
-    effectiveSpeed: stats.speed,
-    effectiveDamage: stats.damage,
-    effectiveMaxHp: stats.hp,
-    effectiveShootCooldown: SHOOT_COOLDOWN_MS,
-    critChance: 0,
-    armor: 0,
-    effectiveRange: BASE_BULLET_RANGE,
+    input: { dx: 0, dy: 0, aimAngle: 0, shoot: false }, inputReceivedAt: Date.now(),
+    shootCooldownRemaining: 0, knockbackVx: 0, knockbackVy: 0,
+    slowMultiplier: 1, damageFlashMs: 0, augments: [],
+    effectiveSpeed: stats.speed, effectiveDamage: stats.damage,
+    effectiveMaxHp: stats.hp, effectiveShootCooldown: SHOOT_COOLDOWN_MS,
+    critChance: 0, armor: 0, effectiveRange: BASE_BULLET_RANGE,
     playerRadius: PLAYER_RADIUS,
-    shieldGuardActive: false,
-    shieldGuardCooldownMs: 0,
-    freezeRemainingMs: 0,
-    burnRemainingMs: 0,
-    burnDamagePerTick: 0,
+    shieldGuardActive: false, shieldGuardCooldownMs: 0,
+    freezeRemainingMs: 0, burnRemainingMs: 0, burnDamagePerTick: 0,
   };
 }
 
 // ── Public API ──
-
 export function handleInput(roomCode: string, playerId: string, input: InputPayload): void {
   const game = activeGames.get(roomCode);
   if (!game || game.phase !== "combat") return;
@@ -439,43 +270,30 @@ export function handleInput(roomCode: string, playerId: string, input: InputPayl
 export function handleAugmentSelection(roomCode: string, playerId: string, augmentId: AugmentId): void {
   const game = activeGames.get(roomCode);
   if (!game || game.phase !== "draft") return;
-  if (!game.draftSelections.has(playerId)) return;
   if (game.draftSelections.get(playerId) !== null) return;
-  // Validate the augment is in THIS player's offered cards
-  const playerCards = game.playerDraftCards.get(playerId);
-  if (!playerCards || !playerCards.some((c) => c.id === augmentId)) return;
-
+  const cards = game.playerDraftCards.get(playerId);
+  if (!cards || !cards.some((c) => c.id === augmentId)) return;
   game.draftSelections.set(playerId, augmentId);
   const player = game.players.get(playerId);
-  if (player) {
-    player.augments.push(augmentId);
-    console.log(`[draft] ${playerId.slice(0, 6)} picked ${augmentId}`);
-  }
-
-  checkDraftComplete(game);
+  if (player) player.augments.push(augmentId);
+  if (Array.from(game.draftSelections.values()).every((v) => v !== null)) startCombatPhase(game);
 }
 
 export function handleReroll(roomCode: string, playerId: string, cardIndex: number): void {
   const game = activeGames.get(roomCode);
   if (!game || game.phase !== "draft") return;
   if (game.draftSelections.get(playerId) !== null) return;
-  const playerCards = game.playerDraftCards.get(playerId);
-  const playerRerolls = game.playerCardRerolls.get(playerId);
-  if (!playerCards || !playerRerolls) return;
-  if (cardIndex < 0 || cardIndex >= playerCards.length) return;
-  if (playerRerolls[cardIndex] <= 0) return;
-
-  playerRerolls[cardIndex]--;
-  // Replace this one card with a new random augment of same tier
-  const currentIds = new Set(playerCards.map((c: AugmentCard) => c.id));
+  const cards = game.playerDraftCards.get(playerId);
+  const rerolls = game.playerCardRerolls.get(playerId);
+  if (!cards || !rerolls || cardIndex < 0 || cardIndex >= cards.length || rerolls[cardIndex] <= 0) return;
+  rerolls[cardIndex]--;
+  const currentIds = new Set(cards.map((c) => c.id));
   const pool = ALL_AUGMENTS.filter((a) => a.tier === game.draftTier && !currentIds.has(a.id));
   if (pool.length > 0) {
-    const replacement = pool[Math.floor(Math.random() * pool.length)];
-    playerCards[cardIndex] = { id: replacement.id, name: replacement.name, tier: replacement.tier, description: replacement.description };
+    const r = pool[Math.floor(Math.random() * pool.length)];
+    cards[cardIndex] = { id: r.id, name: r.name, tier: r.tier, description: r.description };
   }
-
   broadcastDraft(game);
-  console.log(`[draft] ${playerId.slice(0, 6)} rerolled card ${cardIndex}, ${playerRerolls[cardIndex]} left`);
 }
 
 export function removePlayerFromGame(roomCode: string, playerId: string): void {
@@ -483,27 +301,20 @@ export function removePlayerFromGame(roomCode: string, playerId: string): void {
   if (!game) return;
   game.players.delete(playerId);
   game.bullets = game.bullets.filter((b) => b.ownerId !== playerId);
-  if (game.players.size === 0) {
-    clearInterval(game.intervalId);
-    activeGames.delete(roomCode);
-  }
+  if (game.players.size === 0) { clearInterval(game.intervalId); activeGames.delete(roomCode); }
 }
 
 export function stopGame(roomCode: string): void {
   const game = activeGames.get(roomCode);
   if (!game) return;
-  clearInterval(game.intervalId);
-  activeGames.delete(roomCode);
+  clearInterval(game.intervalId); activeGames.delete(roomCode);
 }
 
-export function isGameActive(roomCode: string): boolean {
-  return activeGames.has(roomCode);
-}
+export function isGameActive(roomCode: string): boolean { return activeGames.has(roomCode); }
 
 // ══════════════════════════════════
 // ── Draft Phase ──
 // ══════════════════════════════════
-
 function startDraftPhase(game: ActiveGame): void {
   game.phase = "draft";
   game.draftTier = randomTier();
@@ -511,8 +322,6 @@ function startDraftPhase(game: ActiveGame): void {
   game.draftSelections = new Map();
   game.playerDraftCards = new Map();
   game.playerCardRerolls = new Map();
-
-  // Generate unique random cards for each player (same tier, different cards)
   for (const id of game.players.keys()) {
     game.draftSelections.set(id, null);
     const pool = ALL_AUGMENTS.filter((a) => a.tier === game.draftTier);
@@ -522,36 +331,21 @@ function startDraftPhase(game: ActiveGame): void {
     })));
     game.playerCardRerolls.set(id, Array(DRAFT_CARDS_OFFERED).fill(DRAFT_REROLLS_PER_CARD));
   }
-
   broadcastDraft(game);
-}
-
-function checkDraftComplete(game: ActiveGame): void {
-  const allPicked = Array.from(game.draftSelections.values()).every((v) => v !== null);
-  if (allPicked) {
-    startCombatPhase(game);
-  }
 }
 
 function tickDraft(game: ActiveGame): void {
   game.draftTimeRemainingMs -= TICK_MS;
-
-  // Broadcast draft state every 10 ticks (~6/s) for timer updates
-  if (Math.floor(game.draftTimeRemainingMs / TICK_MS) % 10 === 0) {
-    broadcastDraft(game);
-  }
-
+  if (Math.floor(game.draftTimeRemainingMs / TICK_MS) % 10 === 0) broadcastDraft(game);
   if (game.draftTimeRemainingMs <= 0) {
-    // Auto-pick a random card for players who didn't select
-    for (const [playerId, selection] of game.draftSelections.entries()) {
-      if (selection === null) {
-        const playerCards = game.playerDraftCards.get(playerId);
-        if (playerCards && playerCards.length > 0) {
-          const autoCard = playerCards[Math.floor(Math.random() * playerCards.length)];
-          game.draftSelections.set(playerId, autoCard.id);
-          const player = game.players.get(playerId);
-          if (player) player.augments.push(autoCard.id);
-          console.log(`[draft] auto-picked ${autoCard.id} for ${playerId.slice(0, 6)}`);
+    for (const [pid, sel] of game.draftSelections.entries()) {
+      if (sel === null) {
+        const cards = game.playerDraftCards.get(pid);
+        if (cards && cards.length > 0) {
+          const auto = cards[Math.floor(Math.random() * cards.length)];
+          game.draftSelections.set(pid, auto.id);
+          const p = game.players.get(pid);
+          if (p) p.augments.push(auto.id);
         }
       }
     }
@@ -561,369 +355,269 @@ function tickDraft(game: ActiveGame): void {
 
 function broadcastDraft(game: ActiveGame): void {
   const selections: Record<string, AugmentId | null> = {};
-  for (const [id, sel] of game.draftSelections.entries()) {
-    selections[id] = sel;
-  }
-
-  // Send each player their own unique cards
-  for (const playerId of game.players.keys()) {
-    const cards = game.playerDraftCards.get(playerId) ?? [];
-    const rerolls = game.playerCardRerolls.get(playerId) ?? [];
-    const state: DraftState = {
-      phase: "draft",
-      roundNumber: game.roundNumber,
-      tier: game.draftTier,
-      cards,
-      cardRerolls: rerolls,
-      timerMs: game.draftTimeRemainingMs,
-      selections,
-    };
-    // Use per-player broadcast
-    game.broadcastDraftStateToPlayer(game.roomCode, playerId, state);
+  for (const [id, sel] of game.draftSelections.entries()) selections[id] = sel;
+  for (const pid of game.players.keys()) {
+    const cards = game.playerDraftCards.get(pid) ?? [];
+    const rerolls = game.playerCardRerolls.get(pid) ?? [];
+    game.broadcastDraftStateToPlayer(game.roomCode, pid, {
+      phase: "draft", roundNumber: game.roundNumber, tier: game.draftTier,
+      cards, cardRerolls: rerolls, timerMs: game.draftTimeRemainingMs, selections,
+    });
   }
 }
 
-// ── Augment helpers ──
+// ══════════════════════════════════
+// ── Matchmaking (round-robin) ──
+// ══════════════════════════════════
+function generateMatchups(game: ActiveGame): RoundMatchup[] {
+  const alive = Array.from(game.teams.values()).filter((t) => !t.eliminated).map((t) => t.teamNumber);
+  const matchups: RoundMatchup[] = [];
+  const used = new Set<number>();
 
-function hasAugment(player: InternalPlayer, id: AugmentId): boolean {
-  return player.augments.includes(id);
-}
-
-function countAugment(player: InternalPlayer, id: AugmentId): number {
-  return player.augments.filter((a) => a === id).length;
-}
-
-function recalculatePlayerStats(player: InternalPlayer): void {
-  const base = getCharacterStats(player.character);
-
-  let speedMul = 1;
-  let damageMul = 1;
-  let hpMul = 1;
-  let attackSpeedMul = 1;
-  let critChance = 0;
-  let radiusMul = 1;
-  let armor = 0;
-  let range = BASE_BULLET_RANGE;
-
-  for (const aug of player.augments) {
-    switch (aug) {
-      case "AttackBoost": damageMul += AUG_ATTACK_BOOST; break;
-      case "SpeedBoost": speedMul += AUG_SPEED_BOOST; break;
-      case "HpBoost": hpMul += AUG_HP_BOOST; break;
-      case "AttackSpeedBoost": attackSpeedMul += AUG_ATTACK_SPEED_BOOST; break;
-      case "CritChance": critChance += AUG_CRIT_CHANCE; break;
-      case "ArmorBoost": armor += AUG_ARMOR_BOOST; break;
-      case "RangeBoostSmall": range += AUG_RANGE_BOOST_SMALL; break;
-      case "RangeBoostMedium": range += AUG_RANGE_BOOST_MEDIUM; break;
-      case "Sniper": range = AUG_SNIPER_RANGE; break; // 0 = infinite
-      case "Giant":
-        damageMul += AUG_GIANT_DAMAGE_BOOST;
-        hpMul += AUG_GIANT_HP_BOOST;
-        radiusMul = AUG_GIANT_RADIUS_MULTIPLIER;
+  // Try to pair teams that haven't fought yet
+  for (let i = 0; i < alive.length; i++) {
+    if (used.has(alive[i])) continue;
+    for (let j = i + 1; j < alive.length; j++) {
+      if (used.has(alive[j])) continue;
+      const key = `${Math.min(alive[i], alive[j])}-vs-${Math.max(alive[i], alive[j])}`;
+      if (!game.matchupHistory.has(key)) {
+        matchups.push({ team1: alive[i], team2: alive[j] });
+        game.matchupHistory.add(key);
+        used.add(alive[i]); used.add(alive[j]);
         break;
+      }
     }
   }
 
-  if (speedMul > AUG_SPEED_CAP) speedMul = AUG_SPEED_CAP;
+  // If not enough pairs found (all have fought), reset history and try again
+  if (matchups.length === 0 && alive.length >= 2) {
+    game.matchupHistory.clear();
+    return generateMatchups(game);
+  }
 
-  player.effectiveSpeed = base.speed * speedMul;
-  player.effectiveDamage = base.damage * damageMul;
-  player.effectiveMaxHp = Math.round(base.hp * hpMul);
-  player.effectiveShootCooldown = Math.max(AUG_ATTACK_SPEED_FLOOR_MS, SHOOT_COOLDOWN_MS / attackSpeedMul);
-  player.critChance = Math.min(critChance, AUG_CRIT_CAP);
-  player.playerRadius = Math.round(PLAYER_RADIUS * radiusMul);
-  player.armor = armor;
-  player.effectiveRange = range;
+  // Pair remaining unpaired teams (fallback)
+  const unpaired = alive.filter((t) => !used.has(t));
+  for (let i = 0; i + 1 < unpaired.length; i += 2) {
+    matchups.push({ team1: unpaired[i], team2: unpaired[i + 1] });
+    const key = `${Math.min(unpaired[i], unpaired[i + 1])}-vs-${Math.max(unpaired[i], unpaired[i + 1])}`;
+    game.matchupHistory.add(key);
+  }
 
-  player.maxHp = player.effectiveMaxHp;
-  player.hp = player.effectiveMaxHp;
-
-  player.shieldGuardActive = hasAugment(player, "ShieldGuard");
-  player.shieldGuardCooldownMs = 0;
+  return matchups;
 }
 
 // ══════════════════════════════════
 // ── Combat Phase ──
 // ══════════════════════════════════
-
 function startCombatPhase(game: ActiveGame): void {
   game.phase = "combat";
   game.roundTimeRemainingMs = COMBAT_DURATION_S * 1000;
-  game.bullets = [];
-  game.grenades = [];
-  game.killFeed = [];
+  game.bullets = []; game.killFeed = [];
+  for (const id of game.players.keys()) game.roundKills.set(id, 0);
 
-  // Reset round kills
-  for (const id of game.players.keys()) {
-    game.roundKills.set(id, 0);
-  }
+  // Level up
+  game.currentLevel = Math.min(game.roundNumber, MAX_LEVEL);
+  const stats = getStatsForLevel(game.currentLevel);
 
-  // Reset players for new round
-  const teamMap = new Map<string, Team>();
-  for (const p of game.players.values()) teamMap.set(p.id, p.team);
-  const spawns = getInitialSpawns(Array.from(game.players.keys()), teamMap, game.gameMode);
+  // Generate matchups
+  game.matchups = generateMatchups(game);
+  const fightingTeams = new Set<number>();
+  for (const m of game.matchups) { fightingTeams.add(m.team1); fightingTeams.add(m.team2); }
 
+  // Reset players
+  let spawnIdx = 0;
   for (const player of game.players.values()) {
-    const stats = getCharacterStats(player.character);
-    const spawn = spawns.get(player.id) ?? { x: 400, y: 400 };
-    player.x = spawn.x;
-    player.y = spawn.y;
-    player.hp = stats.hp;
-    player.maxHp = stats.hp;
+    player.level = game.currentLevel;
+    player.baseSpeed = stats.speed;
+    player.baseDamage = stats.damage;
+    const spawn = SPAWN_POINTS[spawnIdx++ % SPAWN_POINTS.length];
+    player.x = spawn.x; player.y = spawn.y;
     player.alive = true;
-    player.knockbackVx = 0;
-    player.knockbackVy = 0;
-    player.blinkBonusReady = false;
-    player.slowMultiplier = 1;
-    player.damageFlashMs = 0;
+    player.onBye = !fightingTeams.has(player.team);
+    player.knockbackVx = 0; player.knockbackVy = 0;
+    player.slowMultiplier = 1; player.damageFlashMs = 0;
     player.shootCooldownRemaining = 0;
-    player.abilityCooldownRemaining = 0;
-    player.lastDamageTime = 0;
-    player.freezeRemainingMs = 0;
-    player.burnRemainingMs = 0;
-    player.burnDamagePerTick = 0;
-    // Recalculate stats from augments
+    player.freezeRemainingMs = 0; player.burnRemainingMs = 0; player.burnDamagePerTick = 0;
     recalculatePlayerStats(player);
-    // Keep kills/deaths/damageDealt accumulating across rounds
   }
-
-  console.log(`[game] round ${game.roundNumber} combat started in ${game.roomCode}`);
 }
 
 function tickCombat(game: ActiveGame): void {
   const dt = TICK_MS / 1000;
   const now = Date.now();
-
   game.roundTimeRemainingMs -= TICK_MS;
-
-  // Expire kill feed
   game.killFeed = game.killFeed.filter((e) => now - e.timestamp < KILL_FEED_DURATION_MS);
 
   for (const player of game.players.values()) {
-    if (!player.alive) {
-      player.respawnTimer -= TICK_MS;
-      if (player.respawnTimer <= 0) respawnPlayer(player, game);
-      continue;
-    }
+    if (!player.alive || player.onBye) continue;
 
     player.damageFlashMs = Math.max(0, player.damageFlashMs - TICK_MS);
     player.shootCooldownRemaining = Math.max(0, player.shootCooldownRemaining - TICK_MS);
-    player.abilityCooldownRemaining = Math.max(0, player.abilityCooldownRemaining - TICK_MS);
 
-    // Grenade slow + Freeze augment slow
-    player.slowMultiplier = 1;
-    for (const grenade of game.grenades) {
-      if (grenade.ownerId === player.id) continue;
-      if ((player.x - grenade.x) ** 2 + (player.y - grenade.y) ** 2 <= grenade.radius ** 2) {
-        player.slowMultiplier = WARDEN_GRENADE_SLOW;
-        break;
-      }
-    }
-    // Freeze effect slow (stacks with grenade — takes strongest slow)
+    // Freeze/burn ticks
     if (player.freezeRemainingMs > 0) {
       player.freezeRemainingMs -= TICK_MS;
-      const freezeSlow = 1 - AUG_FREEZE_SLOW;
-      if (freezeSlow < player.slowMultiplier) player.slowMultiplier = freezeSlow;
+      player.slowMultiplier = Math.min(player.slowMultiplier, 1 - AUG_FREEZE_SLOW);
+    } else {
+      player.slowMultiplier = 1;
     }
-
-    // Burn tick damage
     if (player.burnRemainingMs > 0) {
       player.burnRemainingMs -= TICK_MS;
-      const burnDmg = player.burnDamagePerTick * dt;
-      player.hp -= burnDmg;
-      player.lastDamageTime = now;
-      if (player.hp <= 0) {
-        player.hp = 0;
-        player.alive = false;
-        player.deaths++;
-        player.respawnTimer = RESPAWN_DELAY_MS;
-        game.totalDeaths.set(player.id, (game.totalDeaths.get(player.id) ?? 0) + 1);
-        // Burn kills don't credit anyone (environmental damage)
-      }
+      player.hp -= player.burnDamagePerTick * dt;
+      if (player.hp <= 0) { player.hp = 0; player.alive = false; player.deaths++; game.totalDeaths.set(player.id, (game.totalDeaths.get(player.id) ?? 0) + 1); }
     }
 
-    // Shield Guard cooldown
     if (hasAugment(player, "ShieldGuard") && !player.shieldGuardActive) {
       player.shieldGuardCooldownMs -= TICK_MS;
-      if (player.shieldGuardCooldownMs <= 0) {
-        player.shieldGuardActive = true;
-      }
+      if (player.shieldGuardCooldownMs <= 0) player.shieldGuardActive = true;
     }
 
     if (!player.alive) continue;
 
-    // Movement — WASD only, no aimAngle, axis-separated collision
+    // Movement (WASD only, axis-separated collision)
     const input = player.input;
     player.aimAngle = input.aimAngle;
-
-    const inputAge = now - player.inputReceivedAt;
-    const inputFresh = inputAge < INPUT_STALE_MS;
+    const inputFresh = (now - player.inputReceivedAt) < INPUT_STALE_MS;
     const rawDx = inputFresh ? input.dx : 0;
     const rawDy = inputFresh ? input.dy : 0;
     const inputLen = Math.sqrt(rawDx * rawDx + rawDy * rawDy);
     const ndx = inputLen > 0 ? rawDx / inputLen : 0;
     const ndy = inputLen > 0 ? rawDy / inputLen : 0;
-
     const speed = player.effectiveSpeed * player.slowMultiplier;
     const moveX = ndx * speed * dt + player.knockbackVx * dt;
     const moveY = ndy * speed * dt + player.knockbackVy * dt;
-
-    player.knockbackVx *= 0.85;
-    player.knockbackVy *= 0.85;
+    player.knockbackVx *= 0.85; player.knockbackVy *= 0.85;
     if (Math.abs(player.knockbackVx) < 1) player.knockbackVx = 0;
     if (Math.abs(player.knockbackVy) < 1) player.knockbackVy = 0;
-
     const pr = player.playerRadius;
     const newX = player.x + moveX;
     if (!circleCollidesWalls(newX, player.y, pr)) player.x = newX;
     const newY = player.y + moveY;
     if (!circleCollidesWalls(player.x, newY, pr)) player.y = newY;
 
-    // Warden passive
-    if (player.character === "Warden" && player.hp < player.maxHp) {
-      if (now - player.lastDamageTime >= WARDEN_HEAL_DELAY_MS) {
-        player.hp = Math.min(player.maxHp, player.hp + WARDEN_HEAL_RATE * dt);
-      }
-    }
-
-    // ── Shooting with augment modifiers ──
+    // Shooting
     if (inputFresh && input.shoot && player.shootCooldownRemaining <= 0) {
-      let baseDamage = player.effectiveDamage;
-
-      // Phantom passive
-      if (player.character === "Phantom" && player.blinkBonusReady) {
-        baseDamage *= 1 + PHANTOM_BLINK_BONUS;
-        player.blinkBonusReady = false;
-      }
-
-      // FrontArrow penalizes ALL bullets
-      if (hasAugment(player, "FrontArrow")) {
-        baseDamage *= 1 - AUG_FRONT_ARROW_DAMAGE_PENALTY;
-      }
-
-      // Determine bullet properties from augments
+      let baseDmg = player.effectiveDamage;
+      if (hasAugment(player, "FrontArrow")) baseDmg *= 1 - AUG_FRONT_ARROW_DAMAGE_PENALTY;
       const bounces = hasAugment(player, "BouncyWall") ? AUG_BOUNCY_WALL_BOUNCES : 0;
       const isPiercing = hasAugment(player, "PiercingShot");
-
-      // Build list of bullet angles + damage
-      const bulletSpecs: { angle: number; damage: number }[] = [];
-
-      // Primary bullet
-      bulletSpecs.push({ angle: input.aimAngle, damage: baseDamage });
-
-      // FrontArrow: +1 bullet forward (slightly offset)
-      if (hasAugment(player, "FrontArrow")) {
-        bulletSpecs.push({ angle: input.aimAngle + 0.05, damage: baseDamage });
-      }
-
-      // Multishot: each stack adds +1 bullet in a wider fan
+      const bulletSpecs: { angle: number; damage: number }[] = [{ angle: input.aimAngle, damage: baseDmg }];
+      if (hasAugment(player, "FrontArrow")) bulletSpecs.push({ angle: input.aimAngle + 0.05, damage: baseDmg });
       const msLevel = countAugment(player, "Multishot");
       if (msLevel > 0) {
-        const penalty = 1 - AUG_MULTISHOT_DAMAGE_PENALTY * msLevel;
-        const totalBullets = 1 + msLevel; // 1 base + 1 per multishot
-        const spreadTotal = AUG_MULTISHOT_SPREAD_BASE * msLevel;
-        // Rebuild bullet specs as an even fan
-        const baseAngle = input.aimAngle;
-        const baseDmg = baseDamage * Math.max(0.3, penalty);
-        bulletSpecs.length = 0; // clear
-        for (let mi = 0; mi < totalBullets; mi++) {
-          const offset = (mi - (totalBullets - 1) / 2) * (spreadTotal / Math.max(totalBullets - 1, 1));
-          bulletSpecs.push({ angle: baseAngle + offset, damage: baseDmg });
+        const penalty = Math.max(0.3, 1 - AUG_MULTISHOT_DAMAGE_PENALTY * msLevel);
+        const total = 1 + msLevel;
+        const spread = AUG_MULTISHOT_SPREAD_BASE * msLevel;
+        const base = input.aimAngle;
+        const dmg = baseDmg * penalty;
+        bulletSpecs.length = 0;
+        for (let mi = 0; mi < total; mi++) {
+          const off = (mi - (total - 1) / 2) * (spread / Math.max(total - 1, 1));
+          bulletSpecs.push({ angle: base + off, damage: dmg });
         }
-        // Re-add FrontArrow extra if present
-        if (hasAugment(player, "FrontArrow")) {
-          bulletSpecs.push({ angle: baseAngle + 0.05, damage: baseDmg });
-        }
+        if (hasAugment(player, "FrontArrow")) bulletSpecs.push({ angle: base + 0.05, damage: dmg });
       }
-
-      // SideArrows: +2 bullets at ±60° (reduced damage)
       if (hasAugment(player, "SideArrows")) {
-        const sideDmg = baseDamage * (1 - AUG_SIDE_ARROWS_DAMAGE_PENALTY);
-        bulletSpecs.push({ angle: input.aimAngle + AUG_SIDE_ARROWS_ANGLE, damage: sideDmg });
-        bulletSpecs.push({ angle: input.aimAngle - AUG_SIDE_ARROWS_ANGLE, damage: sideDmg });
+        const sd = baseDmg * (1 - AUG_SIDE_ARROWS_DAMAGE_PENALTY);
+        bulletSpecs.push({ angle: input.aimAngle + AUG_SIDE_ARROWS_ANGLE, damage: sd });
+        bulletSpecs.push({ angle: input.aimAngle - AUG_SIDE_ARROWS_ANGLE, damage: sd });
       }
-
-      // Spawn all bullets
       for (const spec of bulletSpecs) {
         let dmg = spec.damage;
-        if (player.critChance > 0 && Math.random() < player.critChance) {
-          dmg *= AUG_CRIT_MULTIPLIER;
-        }
-
+        if (player.critChance > 0 && Math.random() < player.critChance) dmg *= AUG_CRIT_MULTIPLIER;
         game.bullets.push({
-          id: `b${bulletIdCounter++}`,
-          ownerId: player.id,
+          id: `b${bulletIdCounter++}`, ownerId: player.id,
           x: player.x + Math.cos(spec.angle) * (pr + BULLET_RADIUS + 2),
           y: player.y + Math.sin(spec.angle) * (pr + BULLET_RADIUS + 2),
-          vx: Math.cos(spec.angle) * BULLET_SPEED,
-          vy: Math.sin(spec.angle) * BULLET_SPEED,
-          damage: dmg,
-          bouncesRemaining: bounces,
-          piercing: isPiercing,
-          distanceTraveled: 0,
-          maxRange: player.effectiveRange,
+          vx: Math.cos(spec.angle) * BULLET_SPEED, vy: Math.sin(spec.angle) * BULLET_SPEED,
+          damage: dmg, bouncesRemaining: bounces, piercing: isPiercing,
+          distanceTraveled: 0, maxRange: player.effectiveRange,
         });
       }
-
       player.shootCooldownRemaining = player.effectiveShootCooldown;
-    }
-
-    // Ability
-    if (inputFresh && input.ability && player.abilityCooldownRemaining <= 0) {
-      useAbility(player, game);
     }
   }
 
   updateBullets(game, dt, now);
 
-  game.grenades = game.grenades.filter((g) => {
-    g.remainingMs -= TICK_MS;
-    return g.remainingMs > 0;
-  });
-
-  // Broadcast combat state every 2nd tick (30hz) to reduce bandwidth
-  game.tickCounter = (game.tickCounter ?? 0) + 1;
+  // Broadcast every 2nd tick (30hz)
+  game.tickCounter++;
   if (game.tickCounter % 2 === 0) {
     game.broadcastGameState(game.roomCode, buildGameState(game));
   }
 
-  // Check round end
-  if (game.roundTimeRemainingMs <= 0) {
+  // Check if all matchups are resolved (one team dead in each pair)
+  if (game.roundTimeRemainingMs <= 0 || allMatchupsResolved(game)) {
     startRoundResultPhase(game);
   }
 }
 
-// ══════════════════════════════════
-// ── Round Result Phase ──
-// ══════════════════════════════════
+function allMatchupsResolved(game: ActiveGame): boolean {
+  for (const m of game.matchups) {
+    const t1Alive = Array.from(game.players.values()).filter((p) => p.team === m.team1 && p.alive).length;
+    const t2Alive = Array.from(game.players.values()).filter((p) => p.team === m.team2 && p.alive).length;
+    if (t1Alive > 0 && t2Alive > 0) return false; // still fighting
+  }
+  return true;
+}
 
+// ══════════════════════════════════
+// ── Round Result ──
+// ══════════════════════════════════
 function startRoundResultPhase(game: ActiveGame): void {
   game.phase = "roundResult";
   game.resultTimeRemainingMs = ROUND_RESULT_DURATION_MS;
 
-  const roundKills: Record<string, number> = {};
-  const totalKills: Record<string, number> = {};
-  const totalDeaths: Record<string, number> = {};
-  for (const id of game.players.keys()) {
-    roundKills[id] = game.roundKills.get(id) ?? 0;
-    totalKills[id] = game.totalKills.get(id) ?? 0;
-    totalDeaths[id] = game.totalDeaths.get(id) ?? 0;
+  const dmgAmount = TEAM_DAMAGE_SCHEDULE[Math.min(game.roundNumber - 1, TEAM_DAMAGE_SCHEDULE.length - 1)];
+  const healthChanges: Record<number, number> = {};
+  const eliminations: number[] = [];
+
+  // Evaluate each matchup
+  for (const m of game.matchups) {
+    const t1Hp = Array.from(game.players.values()).filter((p) => p.team === m.team1).reduce((s, p) => s + Math.max(0, p.hp), 0);
+    const t2Hp = Array.from(game.players.values()).filter((p) => p.team === m.team2).reduce((s, p) => s + Math.max(0, p.hp), 0);
+
+    let loser: number;
+    if (t1Hp > t2Hp) loser = m.team2;
+    else if (t2Hp > t1Hp) loser = m.team1;
+    else loser = Math.random() < 0.5 ? m.team1 : m.team2; // tie = random loser
+
+    const loserTeam = game.teams.get(loser)!;
+    loserTeam.health = Math.max(0, loserTeam.health - dmgAmount);
+    healthChanges[loser] = -dmgAmount;
+
+    if (loserTeam.health <= 0 && !loserTeam.eliminated) {
+      loserTeam.eliminated = true;
+      game.eliminationCounter++;
+      loserTeam.eliminationOrder = game.eliminationCounter;
+      eliminations.push(loser);
+    }
   }
 
-  const state: RoundResultState = {
-    phase: "roundResult",
-    roundNumber: game.roundNumber,
-    timerMs: game.resultTimeRemainingMs,
-    roundKills, totalKills, totalDeaths,
-  };
-  game.broadcastRoundResult(game.roomCode, state);
-  console.log(`[game] round ${game.roundNumber} result in ${game.roomCode}`);
+  const teamHealths: Record<number, number> = {};
+  for (const t of game.teams.values()) teamHealths[t.teamNumber] = t.health;
+
+  const rk: Record<string, number> = {};
+  const tk: Record<string, number> = {};
+  const td: Record<string, number> = {};
+  for (const id of game.players.keys()) {
+    rk[id] = game.roundKills.get(id) ?? 0;
+    tk[id] = game.totalKills.get(id) ?? 0;
+    td[id] = game.totalDeaths.get(id) ?? 0;
+  }
+
+  game.broadcastRoundResult(game.roomCode, {
+    phase: "roundResult", roundNumber: game.roundNumber, timerMs: game.resultTimeRemainingMs,
+    roundKills: rk, totalKills: tk, totalDeaths: td,
+    matchups: game.matchups, teamHealthChanges: healthChanges, teamHealths, eliminations,
+  });
 }
 
 function tickRoundResult(game: ActiveGame): void {
   game.resultTimeRemainingMs -= TICK_MS;
   if (game.resultTimeRemainingMs <= 0) {
-    if (game.roundNumber >= TOTAL_ROUNDS) {
+    const aliveTeams = Array.from(game.teams.values()).filter((t) => !t.eliminated);
+    if (aliveTeams.length <= 1 || game.roundNumber >= MAX_ROUNDS) {
       endMatch(game);
     } else {
       game.roundNumber++;
@@ -932,424 +626,215 @@ function tickRoundResult(game: ActiveGame): void {
   }
 }
 
-// ══════════════════════════════════
-// ── Match Over ──
-// ══════════════════════════════════
-
 function endMatch(game: ActiveGame): void {
   game.phase = "matchOver";
   clearInterval(game.intervalId);
 
-  const data: GameOverData = {
+  // Build placements from elimination order (last eliminated = worse placement)
+  const teamList = Array.from(game.teams.values());
+  const alive = teamList.filter((t) => !t.eliminated);
+  const eliminated = teamList.filter((t) => t.eliminated).sort((a, b) => b.eliminationOrder - a.eliminationOrder);
+  const ordered = [...alive, ...eliminated];
+  const teamPlacements = ordered.map((t, i) => ({ teamNumber: t.teamNumber, placement: i + 1, health: t.health }));
+  const teamPlacementMap = new Map(teamPlacements.map((tp) => [tp.teamNumber, tp.placement]));
+
+  game.broadcastGameOver(game.roomCode, {
     players: Array.from(game.players.values()).map((p) => ({
-      id: p.id,
-      name: p.name,
-      character: p.character,
-      team: p.team,
+      id: p.id, name: p.name, team: p.team,
+      placement: teamPlacementMap.get(p.team) ?? 99,
       kills: game.totalKills.get(p.id) ?? 0,
       deaths: game.totalDeaths.get(p.id) ?? 0,
-      damageDealt: Math.round(p.damageDealt),
-      augments: p.augments,
+      damageDealt: Math.round(p.damageDealt), augments: p.augments,
     })),
-    gameMode: game.gameMode,
-    matchDurationMs: Date.now() - game.matchStartTime,
-  };
-
-  game.broadcastGameOver(game.roomCode, data);
+    gameMode: game.gameMode, matchDurationMs: Date.now() - game.matchStartTime,
+    teamPlacements,
+  });
   activeGames.delete(game.roomCode);
-  console.log(`[game] match over in ${game.roomCode}`);
 }
 
-// ══════════════════════════════════
-// ── Main Tick Router ──
-// ══════════════════════════════════
-
+// ── Main tick router ──
 function tick(game: ActiveGame): void {
   switch (game.phase) {
     case "draft": tickDraft(game); break;
     case "combat": tickCombat(game); break;
     case "roundResult": tickRoundResult(game); break;
-    case "matchOver": break;
-  }
-}
-
-// ── Abilities ──
-
-function useAbility(player: InternalPlayer, game: ActiveGame): void {
-  switch (player.character) {
-    case "Bruiser":
-      player.abilityActive = true;
-      for (const other of game.players.values()) {
-        if (other.id === player.id || !other.alive) continue;
-        if (isSameTeam(player, other, game.gameMode)) continue;
-        const dx = other.x - player.x;
-        const dy = other.y - player.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist <= BRUISER_BASH_RANGE && dist > 0) {
-          other.knockbackVx = (dx / dist) * BRUISER_BASH_KNOCKBACK;
-          other.knockbackVy = (dy / dist) * BRUISER_BASH_KNOCKBACK;
-        }
-      }
-      setTimeout(() => { player.abilityActive = false; }, 200);
-      player.abilityCooldownRemaining = BRUISER_BASH_COOLDOWN_MS;
-      break;
-
-    case "Phantom": {
-      const input = player.input;
-      const pr = player.playerRadius;
-      const minX = WALL_THICKNESS + pr + 2;
-      const maxX = MAP_WIDTH - WALL_THICKNESS - pr - 2;
-      const minY = WALL_THICKNESS + pr + 2;
-      const maxY = MAP_HEIGHT - WALL_THICKNESS - pr - 2;
-
-      let blinkAngle: number;
-      if (input.dx !== 0 || input.dy !== 0) blinkAngle = Math.atan2(input.dy, input.dx);
-      else blinkAngle = input.aimAngle;
-
-      // Try full distance, then step back
-      for (let frac = 1.0; frac >= 0.1; frac -= 0.1) {
-        let tx = player.x + Math.cos(blinkAngle) * PHANTOM_BLINK_DISTANCE * frac;
-        let ty = player.y + Math.sin(blinkAngle) * PHANTOM_BLINK_DISTANCE * frac;
-        tx = clamp(tx, minX, maxX);
-        ty = clamp(ty, minY, maxY);
-        if (!circleCollidesWalls(tx, ty, pr)) {
-          player.x = tx; player.y = ty;
-          break;
-        }
-      }
-      player.blinkBonusReady = true;
-      player.abilityActive = true;
-      setTimeout(() => { player.abilityActive = false; }, 150);
-      player.abilityCooldownRemaining = PHANTOM_BLINK_COOLDOWN_MS;
-      break;
-    }
-
-    case "Warden": {
-      const gx = player.x + Math.cos(player.aimAngle) * WARDEN_GRENADE_RANGE;
-      const gy = player.y + Math.sin(player.aimAngle) * WARDEN_GRENADE_RANGE;
-      game.grenades.push({
-        id: `g${grenadeIdCounter++}`,
-        ownerId: player.id,
-        x: clamp(gx, WALL_THICKNESS, MAP_WIDTH - WALL_THICKNESS),
-        y: clamp(gy, WALL_THICKNESS, MAP_HEIGHT - WALL_THICKNESS),
-        radius: WARDEN_GRENADE_RADIUS,
-        remainingMs: WARDEN_GRENADE_DURATION_MS,
-      });
-      player.abilityActive = true;
-      setTimeout(() => { player.abilityActive = false; }, 200);
-      player.abilityCooldownRemaining = WARDEN_GRENADE_COOLDOWN_MS;
-      break;
-    }
   }
 }
 
 // ── Bullets ──
-
 function updateBullets(game: ActiveGame, dt: number, now: number): void {
-  const bulletsToRemove = new Set<string>();
-  const newBullets: InternalBullet[] = []; // for ricochet spawns
+  const toRemove = new Set<string>();
+  const newBullets: InternalBullet[] = [];
 
-  for (const bullet of game.bullets) {
-    const moveDistX = bullet.vx * dt;
-    const moveDistY = bullet.vy * dt;
-    bullet.x += moveDistX;
-    bullet.y += moveDistY;
-    bullet.distanceTraveled += Math.sqrt(moveDistX * moveDistX + moveDistY * moveDistY);
+  for (const b of game.bullets) {
+    const mx = b.vx * dt; const my = b.vy * dt;
+    b.x += mx; b.y += my;
+    b.distanceTraveled += Math.sqrt(mx * mx + my * my);
+    if (b.maxRange > 0 && b.distanceTraveled > b.maxRange) { toRemove.add(b.id); continue; }
 
-    // Range check — remove bullet if past max range (0 = infinite)
-    if (bullet.maxRange > 0 && bullet.distanceTraveled > bullet.maxRange) {
-      bulletsToRemove.add(bullet.id); continue;
-    }
-
-    // Wall collision — bounce or remove
-    const wallHit = getCollidingWall(bullet.x, bullet.y, BULLET_RADIUS);
+    const wallHit = getCollidingWall(b.x, b.y, BULLET_RADIUS);
     if (wallHit) {
-      if (bullet.bouncesRemaining > 0) {
-        bullet.bouncesRemaining--;
-        bullet.damage *= 1 - AUG_BOUNCY_WALL_DAMAGE_PENALTY;
-        bounceBulletOffWall(bullet, wallHit);
-      } else {
-        bulletsToRemove.add(bullet.id); continue;
-      }
+      if (b.bouncesRemaining > 0) { b.bouncesRemaining--; b.damage *= 1 - AUG_BOUNCY_WALL_DAMAGE_PENALTY; bounceBullet(b, wallHit); }
+      else { toRemove.add(b.id); continue; }
     }
+    if (b.x < 0 || b.x > MAP_WIDTH || b.y < 0 || b.y > MAP_HEIGHT) { toRemove.add(b.id); continue; }
 
-    if (bullet.x < 0 || bullet.x > MAP_WIDTH || bullet.y < 0 || bullet.y > MAP_HEIGHT) {
-      bulletsToRemove.add(bullet.id); continue;
-    }
-
-    // Player collision
     for (const player of game.players.values()) {
-      if (!player.alive || player.id === bullet.ownerId) continue;
-      const owner = game.players.get(bullet.ownerId);
-      if (owner && isSameTeam(owner, player, game.gameMode)) continue;
+      if (!player.alive || player.onBye || player.id === b.ownerId) continue;
+      const owner = game.players.get(b.ownerId);
+      if (owner && owner.team === player.team) continue; // no friendly fire
 
-      const dx = player.x - bullet.x;
-      const dy = player.y - bullet.y;
-      const hitRadius = player.playerRadius + BULLET_RADIUS;
-
-      if (dx * dx + dy * dy <= hitRadius * hitRadius) {
-        // Shield Guard blocks the bullet
+      const dx = player.x - b.x; const dy = player.y - b.y;
+      if (dx * dx + dy * dy <= (player.playerRadius + BULLET_RADIUS) ** 2) {
         if (player.shieldGuardActive) {
-          player.shieldGuardActive = false;
-          player.shieldGuardCooldownMs = AUG_SHIELD_GUARD_COOLDOWN_MS;
-          player.damageFlashMs = 80;
-          bulletsToRemove.add(bullet.id);
-          break;
+          player.shieldGuardActive = false; player.shieldGuardCooldownMs = AUG_SHIELD_GUARD_COOLDOWN_MS;
+          player.damageFlashMs = 80; toRemove.add(b.id); break;
         }
+        let dmg = b.damage;
+        if (player.armor > 0) dmg *= ARMOR_FORMULA_CONSTANT / (ARMOR_FORMULA_CONSTANT + player.armor);
+        player.hp -= dmg; player.damageFlashMs = 150;
+        if (owner) owner.damageDealt += dmg;
 
-        let damage = bullet.damage;
+        if (owner && hasAugment(owner, "Freeze")) player.freezeRemainingMs = AUG_FREEZE_DURATION_MS;
+        if (owner && hasAugment(owner, "Blaze")) { player.burnRemainingMs = AUG_BLAZE_DURATION_MS; player.burnDamagePerTick = owner.effectiveDamage * AUG_BLAZE_DPS_PERCENT; }
 
-        // Armor reduction (LoL formula: reduction = armor / (armor + 100))
-        if (player.armor > 0) {
-          damage *= ARMOR_FORMULA_CONSTANT / (ARMOR_FORMULA_CONSTANT + player.armor);
-        }
-
-        // Bruiser passive
-        if (player.character === "Bruiser" && player.hp / player.maxHp < BRUISER_PASSIVE_THRESHOLD) {
-          damage *= 1 - BRUISER_PASSIVE_REDUCTION;
-        }
-
-        player.hp -= damage;
-        player.lastDamageTime = now;
-        player.damageFlashMs = 150;
-
-        if (owner) owner.damageDealt += damage;
-
-        // Freeze augment: on hit, apply freeze slow
-        if (owner && hasAugment(owner, "Freeze")) {
-          player.freezeRemainingMs = AUG_FREEZE_DURATION_MS;
-        }
-
-        // Blaze augment: on hit, apply burn DoT
-        if (owner && hasAugment(owner, "Blaze")) {
-          player.burnRemainingMs = AUG_BLAZE_DURATION_MS;
-          player.burnDamagePerTick = owner.effectiveDamage * AUG_BLAZE_DPS_PERCENT;
-        }
-
-        // Ricochet: spawn a new bullet toward nearest enemy
         if (owner && hasAugment(owner, "Ricochet")) {
-          const ricTarget = findNearestEnemy(player.x, player.y, bullet.ownerId, game, AUG_RICOCHET_RANGE);
-          if (ricTarget) {
-            const rdx = ricTarget.x - player.x;
-            const rdy = ricTarget.y - player.y;
+          const target = findNearest(player.x, player.y, b.ownerId, player.team, game);
+          if (target) {
+            const rdx = target.x - player.x; const rdy = target.y - player.y;
             const rLen = Math.sqrt(rdx * rdx + rdy * rdy);
-            if (rLen > 0) {
-              newBullets.push({
-                id: `b${bulletIdCounter++}`,
-                ownerId: bullet.ownerId,
-                x: player.x, y: player.y,
-                vx: (rdx / rLen) * BULLET_SPEED,
-                vy: (rdy / rLen) * BULLET_SPEED,
-                damage: damage * (1 - AUG_RICOCHET_DAMAGE_PENALTY),
-                bouncesRemaining: 0,
-                piercing: false,
-                distanceTraveled: 0,
-                maxRange: bullet.maxRange,
-              });
-            }
+            if (rLen > 0) newBullets.push({ id: `b${bulletIdCounter++}`, ownerId: b.ownerId, x: player.x, y: player.y, vx: (rdx / rLen) * BULLET_SPEED, vy: (rdy / rLen) * BULLET_SPEED, damage: dmg * (1 - AUG_RICOCHET_DAMAGE_PENALTY), bouncesRemaining: 0, piercing: false, distanceTraveled: 0, maxRange: b.maxRange });
           }
         }
 
         if (player.hp <= 0) {
-          player.hp = 0;
-          player.alive = false;
-          player.deaths++;
-          player.respawnTimer = RESPAWN_DELAY_MS;
-          player.freezeRemainingMs = 0;
-          player.burnRemainingMs = 0;
-
+          player.hp = 0; player.alive = false; player.deaths++;
           game.totalDeaths.set(player.id, (game.totalDeaths.get(player.id) ?? 0) + 1);
-
           if (owner) {
             owner.kills++;
             game.roundKills.set(owner.id, (game.roundKills.get(owner.id) ?? 0) + 1);
             game.totalKills.set(owner.id, (game.totalKills.get(owner.id) ?? 0) + 1);
             game.killFeed.push({ killerId: owner.id, victimId: player.id, timestamp: now });
             if (game.killFeed.length > KILL_FEED_MAX) game.killFeed.shift();
-
-            // Death Nova: killed enemy explodes into projectiles
             if (hasAugment(owner, "DeathNova")) {
-              const novaDmg = owner.effectiveDamage * AUG_DEATH_NOVA_DAMAGE_PERCENT;
               for (let ni = 0; ni < AUG_DEATH_NOVA_PROJECTILES; ni++) {
-                const novaAngle = (ni / AUG_DEATH_NOVA_PROJECTILES) * Math.PI * 2;
-                newBullets.push({
-                  id: `b${bulletIdCounter++}`,
-                  ownerId: owner.id,
-                  x: player.x, y: player.y,
-                  vx: Math.cos(novaAngle) * BULLET_SPEED * 0.8,
-                  vy: Math.sin(novaAngle) * BULLET_SPEED * 0.8,
-                  damage: novaDmg,
-                  bouncesRemaining: 0,
-                  piercing: false,
-                  distanceTraveled: 0,
-                  maxRange: 300, // nova bullets have limited range
-                });
+                const a = (ni / AUG_DEATH_NOVA_PROJECTILES) * Math.PI * 2;
+                newBullets.push({ id: `b${bulletIdCounter++}`, ownerId: owner.id, x: player.x, y: player.y, vx: Math.cos(a) * BULLET_SPEED * 0.8, vy: Math.sin(a) * BULLET_SPEED * 0.8, damage: owner.effectiveDamage * AUG_DEATH_NOVA_DAMAGE_PERCENT, bouncesRemaining: 0, piercing: false, distanceTraveled: 0, maxRange: 300 });
               }
             }
           }
         }
-
-        // Piercing: don't remove bullet, reduce damage, continue to next player
-        if (bullet.piercing) {
-          bullet.damage *= 1 - AUG_PIERCING_DAMAGE_PENALTY;
-          bullet.piercing = false; // can only pierce once
-          // Don't break — but don't hit same player twice per frame
-          continue;
-        }
-
-        bulletsToRemove.add(bullet.id);
-        break;
+        if (b.piercing) { b.damage *= 1 - AUG_PIERCING_DAMAGE_PENALTY; b.piercing = false; continue; }
+        toRemove.add(b.id); break;
       }
     }
   }
-
-  game.bullets = game.bullets.filter((b) => !bulletsToRemove.has(b.id));
-  // Add ricochet + death nova bullets
+  game.bullets = game.bullets.filter((x) => !toRemove.has(x.id));
   if (newBullets.length > 0) game.bullets.push(...newBullets);
 }
 
-function findNearestEnemy(x: number, y: number, excludeId: string, game: ActiveGame, maxRange: number): InternalPlayer | null {
-  let best: InternalPlayer | null = null;
-  let bestDistSq = maxRange * maxRange;
+function findNearest(x: number, y: number, excludeId: string, excludeTeam: number, game: ActiveGame): InternalPlayer | null {
+  let best: InternalPlayer | null = null; let bestD = AUG_RICOCHET_RANGE ** 2;
   for (const p of game.players.values()) {
-    if (!p.alive || p.id === excludeId) continue;
-    const dx = p.x - x;
-    const dy = p.y - y;
-    const dSq = dx * dx + dy * dy;
-    if (dSq < bestDistSq) { bestDistSq = dSq; best = p; }
+    if (!p.alive || p.id === excludeId || p.team === excludeTeam) continue;
+    const d = (p.x - x) ** 2 + (p.y - y) ** 2;
+    if (d < bestD) { bestD = d; best = p; }
   }
   return best;
 }
 
-function getCollidingWall(cx: number, cy: number, radius: number): Rect | null {
-  for (const wall of walls) {
-    const nearestX = clamp(cx, wall.x, wall.x + wall.w);
-    const nearestY = clamp(cy, wall.y, wall.y + wall.h);
-    const dx = cx - nearestX;
-    const dy = cy - nearestY;
-    if (dx * dx + dy * dy <= radius * radius) return wall;
+// ── Augment helpers ──
+function hasAugment(p: InternalPlayer, id: AugmentId): boolean { return p.augments.includes(id); }
+function countAugment(p: InternalPlayer, id: AugmentId): number { return p.augments.filter((a) => a === id).length; }
+
+function recalculatePlayerStats(player: InternalPlayer): void {
+  const base = getStatsForLevel(player.level);
+  let speedMul = 1, damageMul = 1, hpMul = 1, asMul = 1, crit = 0, radiusMul = 1, armor = 0, range = BASE_BULLET_RANGE;
+  for (const aug of player.augments) {
+    switch (aug) {
+      case "AttackBoost": damageMul += AUG_ATTACK_BOOST; break;
+      case "SpeedBoost": speedMul += AUG_SPEED_BOOST; break;
+      case "HpBoost": hpMul += AUG_HP_BOOST; break;
+      case "AttackSpeedBoost": asMul += AUG_ATTACK_SPEED_BOOST; break;
+      case "CritChance": crit += AUG_CRIT_CHANCE; break;
+      case "ArmorBoost": armor += AUG_ARMOR_BOOST; break;
+      case "RangeBoostSmall": range += AUG_RANGE_BOOST_SMALL; break;
+      case "RangeBoostMedium": range += AUG_RANGE_BOOST_MEDIUM; break;
+      case "Sniper": range = AUG_SNIPER_RANGE; break;
+      case "Giant": damageMul += AUG_GIANT_DAMAGE_BOOST; hpMul += AUG_GIANT_HP_BOOST; radiusMul = AUG_GIANT_RADIUS_MULTIPLIER; break;
+    }
+  }
+  if (speedMul > AUG_SPEED_CAP) speedMul = AUG_SPEED_CAP;
+  player.effectiveSpeed = base.speed * speedMul;
+  player.effectiveDamage = base.damage * damageMul;
+  player.effectiveMaxHp = Math.round(base.hp * hpMul);
+  player.effectiveShootCooldown = Math.max(AUG_ATTACK_SPEED_FLOOR_MS, SHOOT_COOLDOWN_MS / asMul);
+  player.critChance = Math.min(crit, AUG_CRIT_CAP);
+  player.playerRadius = Math.round(PLAYER_RADIUS * radiusMul);
+  player.armor = armor; player.effectiveRange = range;
+  player.maxHp = player.effectiveMaxHp; player.hp = player.effectiveMaxHp;
+  player.shieldGuardActive = hasAugment(player, "ShieldGuard"); player.shieldGuardCooldownMs = 0;
+}
+
+// ── Collision ──
+function circleCollidesWalls(cx: number, cy: number, r: number): boolean { return getCollidingWall(cx, cy, r) !== null; }
+
+function getCollidingWall(cx: number, cy: number, r: number): Rect | null {
+  for (const w of walls) {
+    const nx = clamp(cx, w.x, w.x + w.w); const ny = clamp(cy, w.y, w.y + w.h);
+    const dx = cx - nx; const dy = cy - ny;
+    if (dx * dx + dy * dy <= r * r) return w;
   }
   return null;
 }
 
-function bounceBulletOffWall(bullet: InternalBullet, wall: Rect): void {
-  const cx = bullet.x; const cy = bullet.y;
-  const dL = Math.abs(cx - wall.x);
-  const dR = Math.abs(cx - (wall.x + wall.w));
-  const dT = Math.abs(cy - wall.y);
-  const dB = Math.abs(cy - (wall.y + wall.h));
-  const minD = Math.min(dL, dR, dT, dB);
-
-  if (minD === dL || minD === dR) {
-    bullet.vx = -bullet.vx;
-    bullet.x = minD === dL ? wall.x - BULLET_RADIUS - 1 : wall.x + wall.w + BULLET_RADIUS + 1;
-  } else {
-    bullet.vy = -bullet.vy;
-    bullet.y = minD === dT ? wall.y - BULLET_RADIUS - 1 : wall.y + wall.h + BULLET_RADIUS + 1;
-  }
+function bounceBullet(b: InternalBullet, w: Rect): void {
+  const dL = Math.abs(b.x - w.x); const dR = Math.abs(b.x - (w.x + w.w));
+  const dT = Math.abs(b.y - w.y); const dB = Math.abs(b.y - (w.y + w.h));
+  const min = Math.min(dL, dR, dT, dB);
+  if (min === dL || min === dR) { b.vx = -b.vx; b.x = min === dL ? w.x - BULLET_RADIUS - 1 : w.x + w.w + BULLET_RADIUS + 1; }
+  else { b.vy = -b.vy; b.y = min === dT ? w.y - BULLET_RADIUS - 1 : w.y + w.h + BULLET_RADIUS + 1; }
 }
 
-function respawnPlayer(player: InternalPlayer, game: ActiveGame): void {
-  player.hp = player.effectiveMaxHp;
-  player.maxHp = player.effectiveMaxHp;
-  player.alive = true;
-  player.blinkBonusReady = false;
-  player.knockbackVx = 0;
-  player.knockbackVy = 0;
-  player.slowMultiplier = 1;
-  player.damageFlashMs = 0;
-  player.freezeRemainingMs = 0;
-  player.burnRemainingMs = 0;
-  player.burnDamagePerTick = 0;
-  if (hasAugment(player, "ShieldGuard")) {
-    player.shieldGuardActive = true;
-    player.shieldGuardCooldownMs = 0;
-  }
-  const spawn = getRespawnPosition(player, game);
-  player.x = spawn.x;
-  player.y = spawn.y;
-}
+function clamp(v: number, min: number, max: number): number { return Math.max(min, Math.min(max, v)); }
+function shuffleArray<T>(arr: T[]): T[] { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; }
 
-// ── Collision helpers ──
-
-function circleCollidesWalls(cx: number, cy: number, radius: number): boolean {
-  return getCollidingWall(cx, cy, radius) !== null;
-}
-
-function isSameTeam(a: InternalPlayer, b: InternalPlayer, mode: GameMode): boolean {
-  if (mode !== "TeamDeathmatch") return false;
-  return a.team !== 0 && a.team === b.team;
-}
-
-function clamp(val: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, val));
-}
-
-function shuffleArray<T>(arr: T[]): T[] {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-}
-
-// ── Build client-facing state ──
-
+// ── Build client state ──
 function buildGameState(game: ActiveGame): GameState {
   const players: PlayerState[] = [];
   for (const p of game.players.values()) {
     players.push({
       id: p.id, name: p.name, x: p.x, y: p.y,
-      hp: p.hp, maxHp: p.maxHp,
-      character: p.character, team: p.team,
-      aimAngle: p.aimAngle, alive: p.alive,
+      hp: p.hp, maxHp: p.maxHp, team: p.team, level: p.level,
+      aimAngle: p.aimAngle, alive: p.alive, onBye: p.onBye,
       kills: p.kills, deaths: p.deaths,
-      abilityCooldownRemaining: p.abilityCooldownRemaining,
-      abilityActive: p.abilityActive,
-      blinkBonusReady: p.blinkBonusReady,
-      slowed: p.slowMultiplier < 1,
-      damageDealt: Math.round(p.damageDealt),
-      damageFlashMs: p.damageFlashMs,
-      augments: p.augments,
-      critChance: p.critChance,
-      armor: p.armor,
-      range: p.effectiveRange,
-      burning: p.burnRemainingMs > 0,
-      frozen: p.freezeRemainingMs > 0,
-      shieldGuardReady: p.shieldGuardActive,
-      playerRadius: p.playerRadius,
+      slowed: p.slowMultiplier < 1, damageDealt: Math.round(p.damageDealt), damageFlashMs: p.damageFlashMs,
+      augments: p.augments, critChance: p.critChance, armor: p.armor, range: p.effectiveRange,
+      burning: p.burnRemainingMs > 0, frozen: p.freezeRemainingMs > 0,
+      shieldGuardReady: p.shieldGuardActive, playerRadius: p.playerRadius,
       stats: {
         health: p.effectiveMaxHp,
         attackDamage: Math.round(p.effectiveDamage * 10) / 10,
         attackSpeed: Math.round((1000 / p.effectiveShootCooldown) * 10) / 10,
-        armor: p.armor,
-        movementSpeed: Math.round(p.effectiveSpeed),
-        range: p.effectiveRange,
+        armor: p.armor, movementSpeed: Math.round(p.effectiveSpeed), range: p.effectiveRange,
       },
     });
   }
 
-  const bullets: BulletState[] = game.bullets.map((b) => ({
-    id: b.id, ownerId: b.ownerId,
-    x: b.x, y: b.y, vx: b.vx, vy: b.vy,
-    damage: b.damage, bouncesRemaining: b.bouncesRemaining,
-    piercing: b.piercing,
-  }));
-
-  const pulseGrenades: PulseGrenadeState[] = game.grenades.map((g) => ({
-    id: g.id, ownerId: g.ownerId,
-    x: g.x, y: g.y, radius: g.radius, remainingMs: g.remainingMs,
+  const teams: TeamState[] = Array.from(game.teams.values()).map((t) => ({
+    teamNumber: t.teamNumber, health: t.health, eliminated: t.eliminated,
+    eliminationOrder: t.eliminationOrder, playerIds: t.playerIds,
+    color: t.color, colorName: t.colorName,
   }));
 
   return {
-    phase: "combat",
-    roundNumber: game.roundNumber,
-    players, bullets, pulseGrenades,
+    phase: "combat", roundNumber: game.roundNumber, currentLevel: game.currentLevel,
+    players, bullets: game.bullets.map((b) => ({ id: b.id, ownerId: b.ownerId, x: b.x, y: b.y, vx: b.vx, vy: b.vy, damage: b.damage, bouncesRemaining: b.bouncesRemaining, piercing: b.piercing })),
+    teams, matchups: game.matchups,
     killFeed: game.killFeed,
-    walls: game.tickCounter <= 2 ? walls : [], // Send walls only on first 2 ticks, client caches them
+    walls: game.tickCounter <= 2 ? walls : [],
     mapWidth: MAP_WIDTH, mapHeight: MAP_HEIGHT,
     timeRemainingMs: game.roundTimeRemainingMs,
-    roomCode: game.roomCode,
-    gameMode: game.gameMode,
+    roomCode: game.roomCode, gameMode: game.gameMode,
   };
 }

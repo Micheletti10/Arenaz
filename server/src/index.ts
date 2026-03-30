@@ -3,21 +3,11 @@ import { readFileSync, existsSync } from "fs";
 import { join, extname } from "path";
 import { Server } from "socket.io";
 import type { ServerToClientEvents, ClientToServerEvents } from "@arenaz/types";
-
-// Serve static client build if it exists (for production/ngrok)
-const CLIENT_DIST = join(import.meta.dirname, "../../client/dist");
-const MIME_TYPES: Record<string, string> = {
-  ".html": "text/html", ".js": "application/javascript", ".css": "text/css",
-  ".png": "image/png", ".jpg": "image/jpeg", ".svg": "image/svg+xml",
-  ".ico": "image/x-icon", ".json": "application/json", ".woff2": "font/woff2",
-};
 import {
   createRoom,
   joinRoom,
   leaveRoom,
-  selectCharacter,
   selectGamemode,
-  assignTeam,
   startGame,
   getRoomForPlayer,
   resetRoom,
@@ -31,24 +21,25 @@ import {
   isGameActive,
 } from "./game/game.js";
 
+const CLIENT_DIST = join(import.meta.dirname, "../../client/dist");
+const MIME_TYPES: Record<string, string> = {
+  ".html": "text/html", ".js": "application/javascript", ".css": "text/css",
+  ".png": "image/png", ".jpg": "image/jpeg", ".svg": "image/svg+xml",
+  ".ico": "image/x-icon", ".json": "application/json", ".woff2": "font/woff2",
+};
+
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3001;
 const hasClientBuild = existsSync(CLIENT_DIST);
 
 const httpServer = createServer((req, res) => {
   if (!hasClientBuild) { res.writeHead(404); res.end("No client build"); return; }
-
   let filePath = join(CLIENT_DIST, req.url === "/" ? "index.html" : req.url!);
-  // SPA fallback — serve index.html for non-file paths
   if (!existsSync(filePath)) filePath = join(CLIENT_DIST, "index.html");
-
   try {
     const data = readFileSync(filePath);
-    const ext = extname(filePath);
-    res.writeHead(200, { "Content-Type": MIME_TYPES[ext] || "application/octet-stream" });
+    res.writeHead(200, { "Content-Type": MIME_TYPES[extname(filePath)] || "application/octet-stream" });
     res.end(data);
-  } catch {
-    res.writeHead(404); res.end("Not found");
-  }
+  } catch { res.writeHead(404); res.end("Not found"); }
 });
 
 const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
@@ -62,7 +53,7 @@ io.on("connection", (socket) => {
     const room = createRoom(socket.id, name);
     socket.join(room.code);
     socket.emit("roomState", room);
-    console.log(`[room] ${name} (${socket.id}) created room ${room.code}`);
+    console.log(`[room] ${name} created room ${room.code}`);
   });
 
   socket.on("joinRoom", (code, name) => {
@@ -70,24 +61,11 @@ io.on("connection", (socket) => {
     if ("error" in result) { socket.emit("error", result.error); return; }
     socket.join(result.room.code);
     io.to(result.room.code).emit("roomState", result.room);
-    console.log(`[room] ${name} (${socket.id}) joined room ${code}`);
-  });
-
-  socket.on("selectCharacter", (character) => {
-    const room = selectCharacter(socket.id, character);
-    if (!room) return;
-    io.to(room.code).emit("roomState", room);
+    console.log(`[room] ${name} joined room ${code}`);
   });
 
   socket.on("selectGamemode", (mode) => {
     const result = selectGamemode(socket.id, mode);
-    if (!result) return;
-    if ("error" in result) { socket.emit("error", result.error); return; }
-    io.to(result.code).emit("roomState", result);
-  });
-
-  socket.on("assignTeam", (playerId, team) => {
-    const result = assignTeam(socket.id, playerId, team);
     if (!result) return;
     if ("error" in result) { socket.emit("error", result.error); return; }
     io.to(result.code).emit("roomState", result);

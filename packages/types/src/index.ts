@@ -1,39 +1,17 @@
 // ── Game Enums ──
 
-export type GameMode = "Deathmatch" | "TeamDeathmatch";
-
-export type CharacterType = "Bruiser" | "Phantom" | "Warden";
-
-export type Team = 0 | 1 | 2; // 0 = unassigned, 1 = red, 2 = blue
+export type GameMode = "FFA" | "Duo";
 
 // ── Augment System ──
 
 export type AugmentTier = "Silver" | "Gold" | "Prismatic";
 
 export type AugmentId =
-  // Silver (stackable stat boosts)
-  | "AttackBoost"
-  | "SpeedBoost"
-  | "HpBoost"
-  | "AttackSpeedBoost"
-  | "CritChance"
-  | "ArmorBoost"
-  | "RangeBoostSmall"
-  // Gold (mechanical changes, non-stackable)
-  | "Multishot"
-  | "Ricochet"
-  | "PiercingShot"
-  | "BouncyWall"
-  | "Freeze"
-  | "Blaze"
-  | "RangeBoostMedium"
-  // Prismatic (game-changing, non-stackable)
-  | "FrontArrow"
-  | "SideArrows"
-  | "DeathNova"
-  | "ShieldGuard"
-  | "Giant"
-  | "Sniper";
+  | "AttackBoost" | "SpeedBoost" | "HpBoost" | "AttackSpeedBoost"
+  | "CritChance" | "ArmorBoost" | "RangeBoostSmall"
+  | "Multishot" | "Ricochet" | "PiercingShot" | "BouncyWall"
+  | "Freeze" | "Blaze" | "RangeBoostMedium"
+  | "FrontArrow" | "SideArrows" | "DeathNova" | "ShieldGuard" | "Giant" | "Sniper";
 
 export interface AugmentDefinition {
   id: AugmentId;
@@ -54,12 +32,17 @@ export interface AugmentCard {
 
 export type MatchPhase = "draft" | "combat" | "roundResult" | "matchOver";
 
+export interface RoundMatchup {
+  team1: number;
+  team2: number;
+}
+
 export interface DraftState {
   phase: "draft";
   roundNumber: number;
   tier: AugmentTier;
-  cards: AugmentCard[]; // 3 cards
-  cardRerolls: number[]; // rerolls remaining per card (e.g. [2, 2, 2])
+  cards: AugmentCard[];
+  cardRerolls: number[];
   timerMs: number;
   selections: Record<string, AugmentId | null>;
 }
@@ -71,6 +54,10 @@ export interface RoundResultState {
   roundKills: Record<string, number>;
   totalKills: Record<string, number>;
   totalDeaths: Record<string, number>;
+  matchups: RoundMatchup[];
+  teamHealthChanges: Record<number, number>; // team -> HP lost this round
+  teamHealths: Record<number, number>;       // team -> current HP
+  eliminations: number[];                    // team numbers eliminated this round
 }
 
 // ── Geometry ──
@@ -82,6 +69,18 @@ export interface Rect {
   h: number;
 }
 
+// ── Team ──
+
+export interface TeamState {
+  teamNumber: number;
+  health: number;
+  eliminated: boolean;
+  eliminationOrder: number; // 0 = not eliminated
+  playerIds: string[];
+  color: number;     // hex color value
+  colorName: string;
+}
+
 // ── Game Objects ──
 
 export interface PlayerState {
@@ -91,32 +90,29 @@ export interface PlayerState {
   y: number;
   hp: number;
   maxHp: number;
-  character: CharacterType;
-  team: Team;
+  team: number; // 1-6 for FFA, 1-3 for Duo
+  level: number;
   aimAngle: number;
   alive: boolean;
   kills: number;
   deaths: number;
-  abilityCooldownRemaining: number;
-  abilityActive: boolean;
-  blinkBonusReady: boolean;
   slowed: boolean;
   damageDealt: number;
   damageFlashMs: number;
+  onBye: boolean; // true if team has a bye this round (invulnerable)
   // Augment state
   augments: AugmentId[];
   critChance: number;
   armor: number;
-  range: number; // bullet max travel distance in px (0 = infinite)
+  range: number;
   burning: boolean;
   frozen: boolean;
   shieldGuardReady: boolean;
   playerRadius: number;
-  // Computed stats for HUD display
   stats: {
     health: number;
     attackDamage: number;
-    attackSpeed: number; // shots per second
+    attackSpeed: number;
     armor: number;
     movementSpeed: number;
     range: number;
@@ -135,15 +131,6 @@ export interface BulletState {
   piercing: boolean;
 }
 
-export interface PulseGrenadeState {
-  id: string;
-  ownerId: string;
-  x: number;
-  y: number;
-  radius: number;
-  remainingMs: number;
-}
-
 export interface KillFeedEntry {
   killerId: string;
   victimId: string;
@@ -153,8 +140,8 @@ export interface KillFeedEntry {
 export interface GameOverPlayerStats {
   id: string;
   name: string;
-  character: CharacterType;
-  team: Team;
+  team: number;
+  placement: number;
   kills: number;
   deaths: number;
   damageDealt: number;
@@ -165,6 +152,7 @@ export interface GameOverData {
   players: GameOverPlayerStats[];
   gameMode: GameMode;
   matchDurationMs: number;
+  teamPlacements: { teamNumber: number; placement: number; health: number }[];
 }
 
 export interface GameState {
@@ -172,7 +160,8 @@ export interface GameState {
   roundNumber: number;
   players: PlayerState[];
   bullets: BulletState[];
-  pulseGrenades: PulseGrenadeState[];
+  teams: TeamState[];
+  matchups: RoundMatchup[];
   killFeed: KillFeedEntry[];
   walls: Rect[];
   mapWidth: number;
@@ -180,6 +169,7 @@ export interface GameState {
   timeRemainingMs: number;
   roomCode: string;
   gameMode: GameMode;
+  currentLevel: number;
 }
 
 // ── Lobby ──
@@ -187,8 +177,7 @@ export interface GameState {
 export interface LobbyPlayer {
   id: string;
   name: string;
-  character: CharacterType | null;
-  team: Team;
+  team: number; // auto-assigned at game start
   isHost: boolean;
 }
 
@@ -216,9 +205,7 @@ export interface ServerToClientEvents {
 export interface ClientToServerEvents {
   createRoom: (name: string) => void;
   joinRoom: (code: string, name: string) => void;
-  selectCharacter: (character: CharacterType) => void;
   selectGamemode: (mode: GameMode) => void;
-  assignTeam: (playerId: string, team: Team) => void;
   startGame: () => void;
   ready: () => void;
   input: (input: InputPayload) => void;
@@ -231,5 +218,4 @@ export interface InputPayload {
   dy: number;
   aimAngle: number;
   shoot: boolean;
-  ability: boolean;
 }
