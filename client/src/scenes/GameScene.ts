@@ -108,6 +108,12 @@ export class GameScene extends Phaser.Scene {
   // Nametag text objects (reused across frames)
   private nameTags: Map<string, Phaser.GameObjects.Text> = new Map();
 
+  // Cached walls (sent once from server, reused across ticks)
+  private cachedWalls: GameState["walls"] | null = null;
+
+  // Interpolation: smoothed positions for remote players
+  private renderPos: Map<string, { x: number; y: number }> = new Map();
+
   constructor() { super({ key: "GameScene" }); }
 
   private get sw(): number { return this.scale.width; }
@@ -165,6 +171,9 @@ export class GameScene extends Phaser.Scene {
 
     // Socket events
     socket.on("gameState", (state) => {
+      // Cache walls from first state (server stops sending them after tick 2)
+      if (state.walls.length > 0) this.cachedWalls = state.walls;
+      if (this.cachedWalls) state.walls = this.cachedWalls;
       this.gameState = state;
       this.currentPhase = "combat";
       this.hideDraftOverlay();
@@ -431,7 +440,21 @@ export class GameScene extends Phaser.Scene {
 
     this.updateBulletTrails(state.bullets);
     for (const b of state.bullets) this.drawBullet(b);
-    for (const p of state.players) this.drawPlayer(p, p.x, p.y);
+    // Interpolate remote player positions for smoothness
+    for (const p of state.players) {
+      let rp = this.renderPos.get(p.id);
+      if (!rp) { rp = { x: p.x, y: p.y }; this.renderPos.set(p.id, rp); }
+      if (p.id === socket.id || !p.alive) {
+        rp.x = p.x; rp.y = p.y; // local player: direct from server
+      } else {
+        rp.x = Phaser.Math.Linear(rp.x, p.x, 0.3);
+        rp.y = Phaser.Math.Linear(rp.y, p.y, 0.3);
+      }
+      this.drawPlayer(p, rp.x, rp.y);
+    }
+    // Clean stale render positions
+    const pIds = new Set(state.players.map((p) => p.id));
+    for (const id of this.renderPos.keys()) if (!pIds.has(id)) this.renderPos.delete(id);
 
     // Nametags (world-space text above each player)
     const activeIds = new Set(state.players.map((p) => p.id));
@@ -453,7 +476,8 @@ export class GameScene extends Phaser.Scene {
         this.nameTags.set(p.id, tag);
       }
       const R = p.playerRadius || PLAYER_RADIUS;
-      tag.setPosition(p.x, p.y - R - 24);
+      const rp = this.renderPos.get(p.id) ?? { x: p.x, y: p.y };
+      tag.setPosition(rp.x, rp.y - R - 24);
       tag.setText(p.name || p.id.slice(0, 6));
       tag.setVisible(true);
       tag.setColor(p.id === socket.id ? "#ff6b4a" : "#ffffff");
@@ -824,6 +848,7 @@ export class GameScene extends Phaser.Scene {
     if (this.helpBtnContainer) { this.helpBtnContainer.destroy(); this.helpBtnContainer = null; }
     if (this.scoreboardContainer) { this.scoreboardContainer.destroy(); this.scoreboardContainer = null; }
     this.bulletTrails.clear();
+    this.renderPos.clear();
     for (const tag of this.nameTags.values()) tag.destroy();
     this.nameTags.clear();
     if (this.hudCamera) this.cameras.remove(this.hudCamera);

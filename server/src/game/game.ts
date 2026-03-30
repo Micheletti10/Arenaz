@@ -258,6 +258,7 @@ interface ActiveGame {
   roundKills: Map<string, number>;
   totalKills: Map<string, number>;
   totalDeaths: Map<string, number>;
+  tickCounter: number;
   // Broadcast callbacks
   broadcastGameState: (roomCode: string, state: GameState) => void;
   broadcastDraftStateToPlayer: (roomCode: string, playerId: string, state: DraftState) => void;
@@ -369,6 +370,7 @@ export function createGame(
     playerCardRerolls: new Map(),
     draftSelections: new Map(),
     draftTier: "Silver",
+    tickCounter: 0,
     roundKills,
     totalKills,
     totalDeaths,
@@ -879,8 +881,11 @@ function tickCombat(game: ActiveGame): void {
     return g.remainingMs > 0;
   });
 
-  // Broadcast combat state
-  game.broadcastGameState(game.roomCode, buildGameState(game));
+  // Broadcast combat state every 2nd tick (30hz) to reduce bandwidth
+  game.tickCounter = (game.tickCounter ?? 0) + 1;
+  if (game.tickCounter % 2 === 0) {
+    game.broadcastGameState(game.roomCode, buildGameState(game));
+  }
 
   // Check round end
   if (game.roundTimeRemainingMs <= 0) {
@@ -1341,7 +1346,8 @@ function buildGameState(game: ActiveGame): GameState {
     roundNumber: game.roundNumber,
     players, bullets, pulseGrenades,
     killFeed: game.killFeed,
-    walls, mapWidth: MAP_WIDTH, mapHeight: MAP_HEIGHT,
+    walls: game.tickCounter <= 2 ? walls : [], // Send walls only on first 2 ticks, client caches them
+    mapWidth: MAP_WIDTH, mapHeight: MAP_HEIGHT,
     timeRemainingMs: game.roundTimeRemainingMs,
     roomCode: game.roomCode,
     gameMode: game.gameMode,
