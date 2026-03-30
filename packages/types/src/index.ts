@@ -134,6 +134,16 @@ export interface BulletState {
   piercing: boolean;
 }
 
+export interface HealOrbState {
+  id: string;
+  x: number;
+  y: number;
+  healAmount: number;
+  active: boolean; // false = picked up, respawning
+  respawnMs: number;
+  isLarge: boolean;
+}
+
 export interface KillFeedEntry {
   killerId: string;
   victimId: string;
@@ -158,15 +168,23 @@ export interface GameOverData {
   teamPlacements: { teamNumber: number; placement: number; health: number }[];
 }
 
+export interface ArenaConfig {
+  centerX: number;
+  centerY: number;
+  radius: number;
+}
+
 export interface GameState {
   phase: "combat";
   roundNumber: number;
   players: PlayerState[];
   bullets: BulletState[];
+  healOrbs: HealOrbState[];
   teams: TeamState[];
   matchups: RoundMatchup[];
   killFeed: KillFeedEntry[];
   walls: Rect[];
+  arena: ArenaConfig;
   mapWidth: number;
   mapHeight: number;
   timeRemainingMs: number;

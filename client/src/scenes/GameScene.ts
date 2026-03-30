@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import { socket } from "../network";
-import type { GameState, PlayerState, InputPayload, BulletState, DraftState, RoundResultState, AugmentTier, AugmentId, TeamState, RoundMatchup } from "@arenaz/types";
-import { PLAYER_RADIUS, BULLET_RADIUS, MAP_WIDTH, MAP_HEIGHT, MAX_ROUNDS, FFA_TEAM_COLORS } from "@arenaz/types/src/constants";
+import type { GameState, PlayerState, InputPayload, BulletState, DraftState, RoundResultState, AugmentTier, AugmentId, TeamState, RoundMatchup, HealOrbState } from "@arenaz/types";
+import { PLAYER_RADIUS, BULLET_RADIUS, MAP_WIDTH, MAP_HEIGHT, MAX_ROUNDS, FFA_TEAM_COLORS, ARENA_CENTER_X, ARENA_CENTER_Y, ARENA_RADIUS } from "@arenaz/types/src/constants";
 
 // ── Palette ──
 const BG_COLOR = 0x0f1123;
@@ -219,6 +219,9 @@ export class GameScene extends Phaser.Scene {
     const me = this.getMe();
     if (me) { this.cameraTarget.setPosition(me.x, me.y); this.deathText.setVisible(!me.alive); if (!me.alive) this.deathText.setText("ELIMINATED"); }
 
+    // Heal orbs
+    for (const orb of state.healOrbs) this.drawHealOrb(orb);
+
     this.updateBulletTrails(state.bullets);
     for (const b of state.bullets) this.drawBullet(b);
 
@@ -249,22 +252,77 @@ export class GameScene extends Phaser.Scene {
 
   private drawFloor(): void {
     const g = this.floorGraphics; g.clear();
-    g.lineStyle(1, GRID_LINE, 0.4);
-    for (let x = 0; x <= MAP_WIDTH; x += GRID_SIZE) g.lineBetween(x, 0, x, MAP_HEIGHT);
-    for (let y = 0; y <= MAP_HEIGHT; y += GRID_SIZE) g.lineBetween(0, y, MAP_WIDTH, y);
-    g.fillStyle(GRID_DOT, 0.6);
-    for (let x = 0; x <= MAP_WIDTH; x += GRID_SIZE) for (let y = 0; y <= MAP_HEIGHT; y += GRID_SIZE) g.fillCircle(x, y, 1.5);
+    const cx = ARENA_CENTER_X; const cy = ARENA_CENTER_Y; const r = ARENA_RADIUS;
+
+    // Sky background (outside arena)
+    g.fillStyle(0x1a3050, 1);
+    g.fillRect(0, 0, MAP_WIDTH, MAP_HEIGHT);
+
+    // Cloud patches
+    g.fillStyle(0x2a4060, 0.3);
+    g.fillCircle(200, 200, 180); g.fillCircle(1400, 300, 200);
+    g.fillCircle(300, 900, 160); g.fillCircle(1300, 1000, 190);
+    g.fillStyle(0x1e3858, 0.4);
+    g.fillCircle(100, 600, 150); g.fillCircle(1500, 600, 170);
+
+    // Arena floor (green stone circle)
+    g.fillStyle(0x2a4a3a, 1); g.fillCircle(cx, cy, r);
+    // Inner pattern ring
+    g.lineStyle(3, 0x3a6050, 0.4); g.strokeCircle(cx, cy, r * 0.75);
+    g.lineStyle(2, 0x3a6050, 0.25); g.strokeCircle(cx, cy, r * 0.5);
+    // Center diamond pattern
+    g.lineStyle(2, 0x4a7060, 0.3);
+    g.lineBetween(cx - 60, cy, cx, cy - 60); g.lineBetween(cx, cy - 60, cx + 60, cy);
+    g.lineBetween(cx + 60, cy, cx, cy + 60); g.lineBetween(cx, cy + 60, cx - 60, cy);
+
+    // Arena border (stone ring)
+    g.lineStyle(8, 0x5a6a5a, 0.7); g.strokeCircle(cx, cy, r);
+    g.lineStyle(3, 0x7a8a7a, 0.4); g.strokeCircle(cx, cy, r + 4);
+    g.lineStyle(2, 0x3a4a3a, 0.5); g.strokeCircle(cx, cy, r - 4);
+
+    // Subtle grid within arena
+    g.lineStyle(1, GRID_LINE, 0.15);
+    for (let x = cx - r; x <= cx + r; x += GRID_SIZE) {
+      for (let y = cy - r; y <= cy + r; y += GRID_SIZE) {
+        const dx = x - cx; const dy = y - cy;
+        if (dx * dx + dy * dy < (r - 10) * (r - 10)) {
+          g.fillStyle(GRID_DOT, 0.3); g.fillCircle(x, y, 1);
+        }
+      }
+    }
   }
 
   private drawWalls(state: GameState): void {
     const g = this.wallsGraphics; g.clear();
     for (const wall of state.walls) {
       const { x, y, w, h } = wall;
-      g.fillStyle(0x080a18, 0.6); g.fillRoundedRect(x + 3, y + 3, w, h, 3);
-      g.fillStyle(WALL_FILL, 1); g.fillRoundedRect(x, y, w, h, 3);
-      g.fillStyle(WALL_HIGHLIGHT, 1); g.fillRect(x + 3, y, w - 6, 2); g.fillRect(x, y + 3, 2, h - 6);
-      g.fillStyle(WALL_SHADOW, 1); g.fillRect(x + 3, y + h - 2, w - 6, 2); g.fillRect(x + w - 2, y + 3, 2, h - 6);
+      // Stone pillar style
+      g.fillStyle(0x080a18, 0.5); g.fillRoundedRect(x + 3, y + 3, w, h, 6);
+      g.fillStyle(0x4a5a4a, 1); g.fillRoundedRect(x, y, w, h, 6);
+      g.fillStyle(0x6a7a6a, 1); g.fillRect(x + 3, y, w - 6, 3);
+      g.fillStyle(0x3a4a3a, 1); g.fillRect(x + 3, y + h - 3, w - 6, 3);
+      g.lineStyle(1, 0x5a6a5a, 0.3); g.strokeRoundedRect(x + 4, y + 4, w - 8, h - 8, 4);
     }
+  }
+
+  private drawHealOrb(orb: HealOrbState): void {
+    if (!orb.active) return;
+    const g = this.gameGraphics;
+    const r = orb.isLarge ? 16 : 10;
+    const color = 0x44ff44;
+    const pulse = 0.6 + 0.4 * Math.sin(Date.now() / 250);
+
+    // Glow
+    g.fillStyle(color, 0.08 * pulse); g.fillCircle(orb.x, orb.y, r + 12);
+    g.fillStyle(color, 0.15 * pulse); g.fillCircle(orb.x, orb.y, r + 6);
+    // Core
+    g.fillStyle(0x0f1123, 0.9); g.fillCircle(orb.x, orb.y, r);
+    g.lineStyle(2, color, 0.9); g.strokeCircle(orb.x, orb.y, r);
+    // Cross icon
+    const s = r * 0.5;
+    g.fillStyle(color, 1);
+    g.fillRect(orb.x - s * 0.25, orb.y - s * 0.8, s * 0.5, s * 1.6);
+    g.fillRect(orb.x - s * 0.8, orb.y - s * 0.25, s * 1.6, s * 0.5);
   }
 
   private updateBulletTrails(bullets: BulletState[]): void {

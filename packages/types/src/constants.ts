@@ -48,6 +48,17 @@ export const FFA_TEAM_COLOR_NAMES = ["Red", "Blue", "Green", "Yellow", "Purple",
 export const DUO_TEAM_COLORS = [0xff4444, 0x4488ff, 0x44cc44];
 export const DUO_TEAM_COLOR_NAMES = ["Red", "Blue", "Green"];
 
+// ── Circular Arena ──
+export const ARENA_CENTER_X = 800;
+export const ARENA_CENTER_Y = 600;
+export const ARENA_RADIUS = 520;
+
+// ── Heal Orbs ──
+export const HEAL_ORB_SMALL_AMOUNT = 25;
+export const HEAL_ORB_LARGE_AMOUNT = 50;
+export const HEAL_ORB_RESPAWN_MS = 15000;
+export const HEAL_ORB_PICKUP_RADIUS = 20;
+
 // ── Shooting ──
 export const BULLET_SPEED = 600;
 export const BULLET_RADIUS = 4;

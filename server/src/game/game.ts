@@ -17,6 +17,8 @@ import type {
   RoundResultState,
   TeamState,
   RoundMatchup,
+  HealOrbState,
+  ArenaConfig,
 } from "@arenaz/types";
 import {
   MAP_WIDTH, MAP_HEIGHT, WALL_THICKNESS, TICK_MS,
@@ -42,21 +44,22 @@ import {
   AUG_SHIELD_GUARD_COOLDOWN_MS, AUG_GIANT_DAMAGE_BOOST, AUG_GIANT_HP_BOOST, AUG_GIANT_RADIUS_MULTIPLIER,
   AUG_LIFESTEAL_SMALL, AUG_LIFESTEAL_MEDIUM, AUG_LIFESTEAL_LARGE,
   AUG_BULLET_SPEED_SMALL, AUG_BULLET_SPEED_MEDIUM, AUG_BULLET_SPEED_LARGE,
+  ARENA_CENTER_X, ARENA_CENTER_Y, ARENA_RADIUS,
+  HEAL_ORB_SMALL_AMOUNT, HEAL_ORB_LARGE_AMOUNT, HEAL_ORB_RESPAWN_MS, HEAL_ORB_PICKUP_RADIUS,
 } from "@arenaz/types/src/constants.js";
 
-// ── Map walls ──
+// ── Circular arena with interior pillars ──
+// The arena boundary is a circle (ARENA_CENTER, ARENA_RADIUS) — enforced in movement code.
+// Interior walls are rectangular pillars for cover, placed symmetrically like the LoL Arena map.
 const walls: Rect[] = [
-  { x: 0, y: 0, w: MAP_WIDTH, h: WALL_THICKNESS },
-  { x: 0, y: MAP_HEIGHT - WALL_THICKNESS, w: MAP_WIDTH, h: WALL_THICKNESS },
-  { x: 0, y: 0, w: WALL_THICKNESS, h: MAP_HEIGHT },
-  { x: MAP_WIDTH - WALL_THICKNESS, y: 0, w: WALL_THICKNESS, h: MAP_HEIGHT },
-  { x: 300, y: 250, w: 200, h: 30 }, { x: 1100, y: 250, w: 200, h: 30 },
-  { x: 300, y: 920, w: 200, h: 30 }, { x: 1100, y: 920, w: 200, h: 30 },
-  { x: 750, y: 500, w: 100, h: 30 }, { x: 750, y: 670, w: 100, h: 30 },
-  { x: 700, y: 550, w: 30, h: 100 }, { x: 870, y: 550, w: 30, h: 100 },
-  { x: 200, y: 550, w: 40, h: 100 }, { x: 1360, y: 550, w: 40, h: 100 },
-  { x: 100, y: 100, w: 60, h: 60 }, { x: MAP_WIDTH - 160, y: 100, w: 60, h: 60 },
-  { x: 100, y: MAP_HEIGHT - 160, w: 60, h: 60 }, { x: MAP_WIDTH - 160, y: MAP_HEIGHT - 160, w: 60, h: 60 },
+  // 4 symmetrical stone pillars (NW, NE, SW, SE of center)
+  { x: ARENA_CENTER_X - 250, y: ARENA_CENTER_Y - 200, w: 50, h: 50 },
+  { x: ARENA_CENTER_X + 200, y: ARENA_CENTER_Y - 200, w: 50, h: 50 },
+  { x: ARENA_CENTER_X - 250, y: ARENA_CENTER_Y + 150, w: 50, h: 50 },
+  { x: ARENA_CENTER_X + 200, y: ARENA_CENTER_Y + 150, w: 50, h: 50 },
+  // 2 mid-lane barriers (left and right of center)
+  { x: ARENA_CENTER_X - 150, y: ARENA_CENTER_Y - 20, w: 40, h: 40 },
+  { x: ARENA_CENTER_X + 110, y: ARENA_CENTER_Y - 20, w: 40, h: 40 },
 ];
 
 const INPUT_STALE_MS = 150;
@@ -128,6 +131,11 @@ interface InternalBullet {
   distanceTraveled: number; maxRange: number;
 }
 
+interface InternalHealOrb {
+  id: string; x: number; y: number;
+  healAmount: number; active: boolean; respawnMs: number; isLarge: boolean;
+}
+
 interface InternalTeam {
   teamNumber: number; health: number; eliminated: boolean;
   eliminationOrder: number; playerIds: string[];
@@ -138,6 +146,7 @@ interface ActiveGame {
   roomCode: string; gameMode: GameMode;
   players: Map<string, InternalPlayer>;
   bullets: InternalBullet[];
+  healOrbs: InternalHealOrb[];
   killFeed: KillFeedEntry[];
   nextBulletId: number;
   intervalId: ReturnType<typeof setInterval>;
@@ -180,11 +189,30 @@ function getStatsForLevel(level: number): { hp: number; speed: number; damage: n
 }
 
 // ── Spawns ──
-const SPAWN_POINTS = [
-  { x: 250, y: 400 }, { x: 1350, y: 400 },
-  { x: 250, y: 700 }, { x: 1350, y: 700 },
-  { x: 800, y: 350 }, { x: 800, y: 850 },
-];
+// Spawn points arranged around the circular arena (evenly spaced on inner ring)
+const SPAWN_POINTS = (() => {
+  const pts: { x: number; y: number }[] = [];
+  for (let i = 0; i < 6; i++) {
+    const angle = (i / 6) * Math.PI * 2 - Math.PI / 2;
+    pts.push({
+      x: Math.round(ARENA_CENTER_X + Math.cos(angle) * (ARENA_RADIUS * 0.6)),
+      y: Math.round(ARENA_CENTER_Y + Math.sin(angle) * (ARENA_RADIUS * 0.6)),
+    });
+  }
+  return pts;
+})();
+
+// 5 heal orbs: 4 small at cardinal positions, 1 large in center
+function createHealOrbs(): InternalHealOrb[] {
+  const smallDist = ARENA_RADIUS * 0.55;
+  return [
+    { id: "heal-center", x: ARENA_CENTER_X, y: ARENA_CENTER_Y, healAmount: HEAL_ORB_LARGE_AMOUNT, active: true, respawnMs: 0, isLarge: true },
+    { id: "heal-n", x: ARENA_CENTER_X, y: ARENA_CENTER_Y - smallDist, healAmount: HEAL_ORB_SMALL_AMOUNT, active: true, respawnMs: 0, isLarge: false },
+    { id: "heal-s", x: ARENA_CENTER_X, y: ARENA_CENTER_Y + smallDist, healAmount: HEAL_ORB_SMALL_AMOUNT, active: true, respawnMs: 0, isLarge: false },
+    { id: "heal-w", x: ARENA_CENTER_X - smallDist, y: ARENA_CENTER_Y, healAmount: HEAL_ORB_SMALL_AMOUNT, active: true, respawnMs: 0, isLarge: false },
+    { id: "heal-e", x: ARENA_CENTER_X + smallDist, y: ARENA_CENTER_Y, healAmount: HEAL_ORB_SMALL_AMOUNT, active: true, respawnMs: 0, isLarge: false },
+  ];
+}
 
 // ── Create game ──
 export function createGame(
@@ -231,7 +259,7 @@ export function createGame(
 
   const game: ActiveGame = {
     roomCode: room.code, gameMode: room.gameMode,
-    players, bullets: [], killFeed: [],
+    players, bullets: [], healOrbs: createHealOrbs(), killFeed: [],
     nextBulletId: 0, intervalId: null!, tickCounter: 0,
     phase: "draft", roundNumber: 1,
     roundTimeRemainingMs: COMBAT_DURATION_S * 1000,
@@ -429,6 +457,7 @@ function startCombatPhase(game: ActiveGame): void {
   game.phase = "combat";
   game.roundTimeRemainingMs = COMBAT_DURATION_S * 1000;
   game.bullets = []; game.killFeed = [];
+  game.healOrbs = createHealOrbs(); // Reset all heal orbs each round
   for (const id of game.players.keys()) game.roundKills.set(id, 0);
 
   // Level up
@@ -555,6 +584,25 @@ function tickCombat(game: ActiveGame): void {
   }
 
   updateBullets(game, dt, now);
+
+  // Heal orb pickup + respawn
+  for (const orb of game.healOrbs) {
+    if (!orb.active) {
+      orb.respawnMs -= TICK_MS;
+      if (orb.respawnMs <= 0) orb.active = true;
+      continue;
+    }
+    for (const player of game.players.values()) {
+      if (!player.alive || player.onBye) continue;
+      const odx = player.x - orb.x; const ody = player.y - orb.y;
+      if (odx * odx + ody * ody <= (player.playerRadius + HEAL_ORB_PICKUP_RADIUS) ** 2) {
+        player.hp = Math.min(player.maxHp, player.hp + orb.healAmount);
+        orb.active = false;
+        orb.respawnMs = HEAL_ORB_RESPAWN_MS;
+        break;
+      }
+    }
+  }
 
   // Broadcast every 2nd tick (30hz)
   game.tickCounter++;
@@ -693,7 +741,9 @@ function updateBullets(game: ActiveGame, dt: number, now: number): void {
       if (b.bouncesRemaining > 0) { b.bouncesRemaining--; b.damage *= 1 - AUG_BOUNCY_WALL_DAMAGE_PENALTY; bounceBullet(b, wallHit); }
       else { toRemove.add(b.id); continue; }
     }
-    if (b.x < 0 || b.x > MAP_WIDTH || b.y < 0 || b.y > MAP_HEIGHT) { toRemove.add(b.id); continue; }
+    // Remove bullets outside circular arena
+    const bdx = b.x - ARENA_CENTER_X; const bdy = b.y - ARENA_CENTER_Y;
+    if (bdx * bdx + bdy * bdy > ARENA_RADIUS * ARENA_RADIUS) { toRemove.add(b.id); continue; }
 
     for (const player of game.players.values()) {
       if (!player.alive || player.onBye || player.id === b.ownerId) continue;
@@ -808,7 +858,14 @@ function recalculatePlayerStats(player: InternalPlayer): void {
 }
 
 // ── Collision ──
-function circleCollidesWalls(cx: number, cy: number, r: number): boolean { return getCollidingWall(cx, cy, r) !== null; }
+function circleCollidesWalls(cx: number, cy: number, r: number): boolean {
+  // Check circular arena boundary (player must stay INSIDE the arena)
+  const dx = cx - ARENA_CENTER_X;
+  const dy = cy - ARENA_CENTER_Y;
+  if (dx * dx + dy * dy > (ARENA_RADIUS - r) * (ARENA_RADIUS - r)) return true;
+  // Check rectangular pillars inside arena
+  return getCollidingWall(cx, cy, r) !== null;
+}
 
 function getCollidingWall(cx: number, cy: number, r: number): Rect | null {
   for (const w of walls) {
@@ -862,8 +919,10 @@ function buildGameState(game: ActiveGame): GameState {
     phase: "combat", roundNumber: game.roundNumber, currentLevel: game.currentLevel,
     players, bullets: game.bullets.map((b) => ({ id: b.id, ownerId: b.ownerId, x: b.x, y: b.y, vx: b.vx, vy: b.vy, damage: b.damage, bouncesRemaining: b.bouncesRemaining, piercing: b.piercing })),
     teams, matchups: game.matchups,
+    healOrbs: game.healOrbs.map((o) => ({ id: o.id, x: o.x, y: o.y, healAmount: o.healAmount, active: o.active, respawnMs: o.respawnMs, isLarge: o.isLarge })),
     killFeed: game.killFeed,
     walls: game.tickCounter <= 2 ? walls : [],
+    arena: { centerX: ARENA_CENTER_X, centerY: ARENA_CENTER_Y, radius: ARENA_RADIUS },
     mapWidth: MAP_WIDTH, mapHeight: MAP_HEIGHT,
     timeRemainingMs: game.roundTimeRemainingMs,
     roomCode: game.roomCode, gameMode: game.gameMode,
