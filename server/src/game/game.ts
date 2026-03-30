@@ -35,7 +35,7 @@ import {
   AUG_ATTACK_SPEED_BOOST, AUG_ATTACK_SPEED_FLOOR_MS,
   AUG_CRIT_CHANCE, AUG_CRIT_MULTIPLIER, AUG_CRIT_CAP,
   AUG_ARMOR_BOOST, AUG_RANGE_BOOST_SMALL, AUG_RANGE_BOOST_MEDIUM, AUG_SNIPER_RANGE,
-  AUG_MULTISHOT_SPREAD_BASE, AUG_MULTISHOT_DAMAGE_PENALTY,
+  AUG_MULTISHOT_SPREAD_BASE, AUG_MULTISHOT_DAMAGE_PENALTY, AUG_MULTISHOT_ATTACK_SPEED_PENALTY, AUG_MULTISHOT_MAX_STACKS,
   AUG_BOUNCY_WALL_BOUNCES, AUG_BOUNCY_WALL_DAMAGE_PENALTY,
   AUG_FREEZE_SLOW, AUG_FREEZE_DURATION_MS, AUG_BLAZE_DPS_PERCENT, AUG_BLAZE_DURATION_MS,
   AUG_FRONT_ARROW_DAMAGE_PENALTY,
@@ -78,7 +78,7 @@ const ALL_AUGMENTS: AugmentDefinition[] = [
   { id: "CritChance", name: "Critical Hit", tier: "Silver", description: "+10% crit chance", stackable: true },
   { id: "ArmorBoost", name: "Armor", tier: "Silver", description: "+15 armor", stackable: true },
   { id: "RangeBoostSmall", name: "Range+", tier: "Silver", description: "+150 range", stackable: true },
-  { id: "Multishot", name: "Multishot", tier: "Gold", description: "+1 bullet per shot", stackable: true },
+  { id: "Multishot", name: "Multishot", tier: "Gold", description: "+1 arrow (-10% dmg, -15% AS, max 3x)", stackable: true },
   { id: "BouncyWall", name: "Bouncy Wall", tier: "Gold", description: "Bullets bounce off walls", stackable: false },
   { id: "Freeze", name: "Freeze", tier: "Gold", description: "Hits slow enemies", stackable: false },
   { id: "Blaze", name: "Blaze", tier: "Gold", description: "Hits burn enemies", stackable: false },
@@ -541,7 +541,7 @@ function tickCombat(game: ActiveGame): void {
       const bounces = hasAugment(player, "BouncyWall") ? AUG_BOUNCY_WALL_BOUNCES : 0;
       const bulletSpecs: { angle: number; damage: number }[] = [{ angle: input.aimAngle, damage: baseDmg }];
       if (hasAugment(player, "FrontArrow")) bulletSpecs.push({ angle: input.aimAngle + 0.05, damage: baseDmg });
-      const msLevel = countAugment(player, "Multishot");
+      const msLevel = Math.min(countAugment(player, "Multishot"), AUG_MULTISHOT_MAX_STACKS);
       if (msLevel > 0) {
         const penalty = Math.max(0.3, 1 - AUG_MULTISHOT_DAMAGE_PENALTY * msLevel);
         const total = 1 + msLevel;
@@ -810,7 +810,10 @@ function recalculatePlayerStats(player: InternalPlayer): void {
   player.effectiveSpeed = base.speed * speedMul;
   player.effectiveDamage = base.damage * damageMul;
   player.effectiveMaxHp = Math.round(base.hp * hpMul);
-  player.effectiveShootCooldown = Math.max(AUG_ATTACK_SPEED_FLOOR_MS, SHOOT_COOLDOWN_MS / asMul);
+  // Multishot reduces attack speed: -15% per stack
+  const msStacks = Math.min(countAugment(player, "Multishot"), AUG_MULTISHOT_MAX_STACKS);
+  const msAsPenalty = 1 + msStacks * AUG_MULTISHOT_ATTACK_SPEED_PENALTY; // >1 means slower
+  player.effectiveShootCooldown = Math.max(AUG_ATTACK_SPEED_FLOOR_MS, (SHOOT_COOLDOWN_MS * msAsPenalty) / asMul);
   player.critChance = Math.min(crit, AUG_CRIT_CAP);
   player.playerRadius = Math.round(PLAYER_RADIUS * radiusMul);
   player.armor = armor; player.effectiveRange = range;

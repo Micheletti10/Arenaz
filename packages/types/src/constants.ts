@@ -88,9 +88,10 @@ export const AUG_ARMOR_BOOST = 15;
 export const AUG_RANGE_BOOST_SMALL = 150;
 
 // Gold (non-stackable)
-export const AUG_MULTISHOT_SPREAD = 0.12;
-export const AUG_MULTISHOT_DAMAGE_PENALTY = 0.15;
+export const AUG_MULTISHOT_DAMAGE_PENALTY = 0.10;        // -10% base damage per stack
+export const AUG_MULTISHOT_ATTACK_SPEED_PENALTY = 0.15;  // -15% attack speed per stack
 export const AUG_MULTISHOT_SPREAD_BASE = 0.15;
+export const AUG_MULTISHOT_MAX_STACKS = 3;
 export const AUG_BOUNCY_WALL_BOUNCES = 2;
 export const AUG_BOUNCY_WALL_DAMAGE_PENALTY = 0.50;
 export const AUG_FREEZE_SLOW = 0.30;
