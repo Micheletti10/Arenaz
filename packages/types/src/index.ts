@@ -13,8 +13,10 @@ export type AugmentId =
   | "Multishot" | "BouncyWall"
   | "Freeze" | "Blaze" | "RangeBoostMedium"
   | "LifestealMedium" | "BulletSpeedMedium"
+  | "Fury" | "Grace" | "Agility"
   | "FrontArrow" | "ShieldGuard" | "Giant" | "Sniper"
-  | "LifestealLarge" | "BulletSpeedLarge";
+  | "LifestealLarge" | "BulletSpeedLarge"
+  | "Rage";
 
 export interface AugmentDefinition {
   id: AugmentId;

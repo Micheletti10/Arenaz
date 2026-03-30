@@ -42,6 +42,7 @@ import {
   AUG_SHIELD_GUARD_COOLDOWN_MS, AUG_GIANT_DAMAGE_BOOST, AUG_GIANT_HP_BOOST, AUG_GIANT_RADIUS_MULTIPLIER,
   AUG_LIFESTEAL_SMALL, AUG_LIFESTEAL_MEDIUM, AUG_LIFESTEAL_LARGE,
   AUG_BULLET_SPEED_SMALL, AUG_BULLET_SPEED_MEDIUM, AUG_BULLET_SPEED_LARGE,
+  AUG_FURY_AS_PER_MISSING, AUG_RAGE_DMG_PER_MISSING, AUG_GRACE_REGEN_PER_MISSING, AUG_AGILITY_DODGE_PER_MISSING,
   ARENA_CENTER_X, ARENA_CENTER_Y, ARENA_RADIUS,
   HEAL_ORB_SMALL_AMOUNT, HEAL_ORB_LARGE_AMOUNT, HEAL_ORB_RESPAWN_MS, HEAL_ORB_PICKUP_RADIUS,
 } from "@arenaz/types/src/constants.js";
@@ -95,6 +96,11 @@ const ALL_AUGMENTS: AugmentDefinition[] = [
   { id: "BulletSpeedSmall", name: "Swift Shots", tier: "Silver", description: "+15% bullet speed", stackable: true },
   { id: "BulletSpeedMedium", name: "Velocity", tier: "Gold", description: "+35% bullet speed", stackable: false },
   { id: "BulletSpeedLarge", name: "Hypersonic", tier: "Prismatic", description: "+60% bullet speed", stackable: false },
+  // Low-HP scaling
+  { id: "Fury", name: "Fury", tier: "Gold", description: "Attack faster at low HP (+0.4% AS per 1% missing)", stackable: false },
+  { id: "Grace", name: "Grace", tier: "Gold", description: "Regen HP at low HP (scales with missing HP)", stackable: false },
+  { id: "Agility", name: "Agility", tier: "Gold", description: "Dodge attacks at low HP (+0.3% per 1% missing)", stackable: false },
+  { id: "Rage", name: "Rage", tier: "Prismatic", description: "Deal more damage at low HP (scales with missing HP)", stackable: false },
 ];
 
 // ── Internal types ──
@@ -513,6 +519,13 @@ function tickCombat(game: ActiveGame): void {
 
     if (!player.alive) continue;
 
+    // Grace: passive HP regen scaling with missing HP
+    if (hasAugment(player, "Grace") && player.hp < player.maxHp) {
+      const missingPct = 1 - player.hp / player.maxHp;
+      const regenRate = missingPct * AUG_GRACE_REGEN_PER_MISSING * player.maxHp; // HP per second
+      player.hp = Math.min(player.maxHp, player.hp + regenRate * dt);
+    }
+
     // Movement (WASD only, axis-separated collision)
     const input = player.input;
     player.aimAngle = input.aimAngle;
@@ -537,6 +550,11 @@ function tickCombat(game: ActiveGame): void {
     // Shooting
     if (inputFresh && input.shoot && player.shootCooldownRemaining <= 0) {
       let baseDmg = player.effectiveDamage;
+      // Rage: multiplicative damage boost based on missing HP
+      if (hasAugment(player, "Rage")) {
+        const missingPct = 1 - player.hp / player.maxHp;
+        baseDmg *= 1 + missingPct * AUG_RAGE_DMG_PER_MISSING * 100;
+      }
       if (hasAugment(player, "FrontArrow")) baseDmg *= 1 - AUG_FRONT_ARROW_DAMAGE_PENALTY;
       const bounces = hasAugment(player, "BouncyWall") ? AUG_BOUNCY_WALL_BOUNCES : 0;
       const bulletSpecs: { angle: number; damage: number }[] = [{ angle: input.aimAngle, damage: baseDmg }];
@@ -567,7 +585,14 @@ function tickCombat(game: ActiveGame): void {
           distanceTraveled: 0, maxRange: player.effectiveRange,
         });
       }
-      player.shootCooldownRemaining = player.effectiveShootCooldown;
+      // Fury: attack speed bonus at low HP
+      let shootCd = player.effectiveShootCooldown;
+      if (hasAugment(player, "Fury")) {
+        const missingPct = 1 - player.hp / player.maxHp;
+        const furyBonus = 1 + missingPct * AUG_FURY_AS_PER_MISSING * 100;
+        shootCd = Math.max(AUG_ATTACK_SPEED_FLOOR_MS, shootCd / furyBonus);
+      }
+      player.shootCooldownRemaining = shootCd;
     }
   }
 
@@ -740,6 +765,14 @@ function updateBullets(game: ActiveGame, dt: number, now: number): void {
 
       const dx = player.x - b.x; const dy = player.y - b.y;
       if (dx * dx + dy * dy <= (player.playerRadius + BULLET_RADIUS) ** 2) {
+        // Agility: dodge chance based on missing HP
+        if (hasAugment(player, "Agility")) {
+          const missingPct = 1 - player.hp / player.maxHp;
+          const dodgeChance = missingPct * AUG_AGILITY_DODGE_PER_MISSING * 100;
+          if (Math.random() < dodgeChance) {
+            toRemove.add(b.id); break; // dodged — bullet removed, no damage
+          }
+        }
         if (player.shieldGuardActive) {
           player.shieldGuardActive = false; player.shieldGuardCooldownMs = AUG_SHIELD_GUARD_COOLDOWN_MS;
           player.damageFlashMs = 80; toRemove.add(b.id); break;

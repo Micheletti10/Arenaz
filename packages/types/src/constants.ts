@@ -117,3 +117,9 @@ export const AUG_LIFESTEAL_LARGE = 0.40;   // Prismatic: 40%
 export const AUG_BULLET_SPEED_SMALL = 0.15;   // Silver: +15%
 export const AUG_BULLET_SPEED_MEDIUM = 0.35;  // Gold: +35%
 export const AUG_BULLET_SPEED_LARGE = 0.60;   // Prismatic: +60%
+
+// Low-HP scaling augments
+export const AUG_FURY_AS_PER_MISSING = 0.004;     // +0.4% attack speed per 1% missing HP
+export const AUG_RAGE_DMG_PER_MISSING = 0.01;     // +1% damage per 1% missing HP (multiplicative)
+export const AUG_GRACE_REGEN_PER_MISSING = 0.001;  // 0.1% max HP/s per 1% missing HP
+export const AUG_AGILITY_DODGE_PER_MISSING = 0.003; // 0.3% dodge per 1% missing HP
