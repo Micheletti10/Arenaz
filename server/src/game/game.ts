@@ -126,11 +126,11 @@ const INPUT_STALE_MS = 150;
 
 // ── Augment definitions ──
 
-// Augment tier is random each round (weighted: Silver 50%, Gold 35%, Prismatic 15%)
+// Augment tier is random each round (equal chance: 33.3% each)
 function randomTier(): AugmentTier {
   const roll = Math.random();
-  if (roll < 0.50) return "Silver";
-  if (roll < 0.85) return "Gold";
+  if (roll < 1 / 3) return "Silver";
+  if (roll < 2 / 3) return "Gold";
   return "Prismatic";
 }
 
