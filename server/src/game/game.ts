@@ -40,6 +40,8 @@ import {
   AUG_FRONT_ARROW_DAMAGE_PENALTY, AUG_SIDE_ARROWS_ANGLE, AUG_SIDE_ARROWS_DAMAGE_PENALTY,
   AUG_DEATH_NOVA_PROJECTILES, AUG_DEATH_NOVA_DAMAGE_PERCENT,
   AUG_SHIELD_GUARD_COOLDOWN_MS, AUG_GIANT_DAMAGE_BOOST, AUG_GIANT_HP_BOOST, AUG_GIANT_RADIUS_MULTIPLIER,
+  AUG_LIFESTEAL_SMALL, AUG_LIFESTEAL_MEDIUM, AUG_LIFESTEAL_LARGE,
+  AUG_BULLET_SPEED_SMALL, AUG_BULLET_SPEED_MEDIUM, AUG_BULLET_SPEED_LARGE,
 } from "@arenaz/types/src/constants.js";
 
 // ── Map walls ──
@@ -88,6 +90,14 @@ const ALL_AUGMENTS: AugmentDefinition[] = [
   { id: "ShieldGuard", name: "Shield Guard", tier: "Prismatic", description: "Block 1 bullet/8s", stackable: false },
   { id: "Giant", name: "Giant", tier: "Prismatic", description: "+40% dmg, bigger hitbox", stackable: false },
   { id: "Sniper", name: "Sniper", tier: "Prismatic", description: "Infinite range", stackable: false },
+  // Lifesteal
+  { id: "LifestealSmall", name: "Lifesteal", tier: "Silver", description: "Heal 10% of damage dealt", stackable: true },
+  { id: "LifestealMedium", name: "Vampirism", tier: "Gold", description: "Heal 25% of damage dealt", stackable: false },
+  { id: "LifestealLarge", name: "Bloodthirst", tier: "Prismatic", description: "Heal 40% of damage dealt", stackable: false },
+  // Bullet Speed
+  { id: "BulletSpeedSmall", name: "Swift Shots", tier: "Silver", description: "+15% bullet speed", stackable: true },
+  { id: "BulletSpeedMedium", name: "Velocity", tier: "Gold", description: "+35% bullet speed", stackable: false },
+  { id: "BulletSpeedLarge", name: "Hypersonic", tier: "Prismatic", description: "+60% bullet speed", stackable: false },
 ];
 
 // ── Internal types ──
@@ -106,6 +116,7 @@ interface InternalPlayer {
   effectiveSpeed: number; effectiveDamage: number; effectiveMaxHp: number;
   effectiveShootCooldown: number; critChance: number; armor: number;
   effectiveRange: number; playerRadius: number;
+  lifestealPercent: number; effectiveBulletSpeed: number;
   shieldGuardActive: boolean; shieldGuardCooldownMs: number;
   freezeRemainingMs: number; burnRemainingMs: number; burnDamagePerTick: number;
 }
@@ -252,6 +263,7 @@ function createPlayer(id: string, name: string, x: number, y: number, team: numb
     effectiveMaxHp: stats.hp, effectiveShootCooldown: SHOOT_COOLDOWN_MS,
     critChance: 0, armor: 0, effectiveRange: BASE_BULLET_RANGE,
     playerRadius: PLAYER_RADIUS,
+    lifestealPercent: 0, effectiveBulletSpeed: BULLET_SPEED,
     shieldGuardActive: false, shieldGuardCooldownMs: 0,
     freezeRemainingMs: 0, burnRemainingMs: 0, burnDamagePerTick: 0,
   };
@@ -288,7 +300,9 @@ export function handleReroll(roomCode: string, playerId: string, cardIndex: numb
   if (!cards || !rerolls || cardIndex < 0 || cardIndex >= cards.length || rerolls[cardIndex] <= 0) return;
   rerolls[cardIndex]--;
   const currentIds = new Set(cards.map((c) => c.id));
-  const pool = ALL_AUGMENTS.filter((a) => a.tier === game.draftTier && !currentIds.has(a.id));
+  const player = game.players.get(playerId);
+  const owned = player ? new Set(player.augments) : new Set<AugmentId>();
+  const pool = ALL_AUGMENTS.filter((a) => a.tier === game.draftTier && !currentIds.has(a.id) && (a.stackable || !owned.has(a.id)));
   if (pool.length > 0) {
     const r = pool[Math.floor(Math.random() * pool.length)];
     cards[cardIndex] = { id: r.id, name: r.name, tier: r.tier, description: r.description };
@@ -322,9 +336,11 @@ function startDraftPhase(game: ActiveGame): void {
   game.draftSelections = new Map();
   game.playerDraftCards = new Map();
   game.playerCardRerolls = new Map();
-  for (const id of game.players.keys()) {
+  for (const [id, player] of game.players.entries()) {
     game.draftSelections.set(id, null);
-    const pool = ALL_AUGMENTS.filter((a) => a.tier === game.draftTier);
+    // Filter: exclude non-stackable augments the player already owns
+    const owned = new Set(player.augments);
+    const pool = ALL_AUGMENTS.filter((a) => a.tier === game.draftTier && (a.stackable || !owned.has(a.id)));
     const shuffled = shuffleArray([...pool]);
     game.playerDraftCards.set(id, shuffled.slice(0, DRAFT_CARDS_OFFERED).map((a) => ({
       id: a.id, name: a.name, tier: a.tier, description: a.description,
@@ -529,7 +545,7 @@ function tickCombat(game: ActiveGame): void {
           id: `b${bulletIdCounter++}`, ownerId: player.id,
           x: player.x + Math.cos(spec.angle) * (pr + BULLET_RADIUS + 2),
           y: player.y + Math.sin(spec.angle) * (pr + BULLET_RADIUS + 2),
-          vx: Math.cos(spec.angle) * BULLET_SPEED, vy: Math.sin(spec.angle) * BULLET_SPEED,
+          vx: Math.cos(spec.angle) * player.effectiveBulletSpeed, vy: Math.sin(spec.angle) * player.effectiveBulletSpeed,
           damage: dmg, bouncesRemaining: bounces, piercing: isPiercing,
           distanceTraveled: 0, maxRange: player.effectiveRange,
         });
@@ -693,7 +709,13 @@ function updateBullets(game: ActiveGame, dt: number, now: number): void {
         let dmg = b.damage;
         if (player.armor > 0) dmg *= ARMOR_FORMULA_CONSTANT / (ARMOR_FORMULA_CONSTANT + player.armor);
         player.hp -= dmg; player.damageFlashMs = 150;
-        if (owner) owner.damageDealt += dmg;
+        if (owner) {
+          owner.damageDealt += dmg;
+          // Lifesteal: heal owner for % of damage dealt
+          if (owner.lifestealPercent > 0) {
+            owner.hp = Math.min(owner.maxHp, owner.hp + dmg * owner.lifestealPercent);
+          }
+        }
 
         if (owner && hasAugment(owner, "Freeze")) player.freezeRemainingMs = AUG_FREEZE_DURATION_MS;
         if (owner && hasAugment(owner, "Blaze")) { player.burnRemainingMs = AUG_BLAZE_DURATION_MS; player.burnDamagePerTick = owner.effectiveDamage * AUG_BLAZE_DPS_PERCENT; }
@@ -750,6 +772,7 @@ function countAugment(p: InternalPlayer, id: AugmentId): number { return p.augme
 function recalculatePlayerStats(player: InternalPlayer): void {
   const base = getStatsForLevel(player.level);
   let speedMul = 1, damageMul = 1, hpMul = 1, asMul = 1, crit = 0, radiusMul = 1, armor = 0, range = BASE_BULLET_RANGE;
+  let lifesteal = 0, bulletSpeedMul = 1;
   for (const aug of player.augments) {
     switch (aug) {
       case "AttackBoost": damageMul += AUG_ATTACK_BOOST; break;
@@ -762,6 +785,12 @@ function recalculatePlayerStats(player: InternalPlayer): void {
       case "RangeBoostMedium": range += AUG_RANGE_BOOST_MEDIUM; break;
       case "Sniper": range = AUG_SNIPER_RANGE; break;
       case "Giant": damageMul += AUG_GIANT_DAMAGE_BOOST; hpMul += AUG_GIANT_HP_BOOST; radiusMul = AUG_GIANT_RADIUS_MULTIPLIER; break;
+      case "LifestealSmall": lifesteal += AUG_LIFESTEAL_SMALL; break;
+      case "LifestealMedium": lifesteal += AUG_LIFESTEAL_MEDIUM; break;
+      case "LifestealLarge": lifesteal += AUG_LIFESTEAL_LARGE; break;
+      case "BulletSpeedSmall": bulletSpeedMul += AUG_BULLET_SPEED_SMALL; break;
+      case "BulletSpeedMedium": bulletSpeedMul += AUG_BULLET_SPEED_MEDIUM; break;
+      case "BulletSpeedLarge": bulletSpeedMul += AUG_BULLET_SPEED_LARGE; break;
     }
   }
   if (speedMul > AUG_SPEED_CAP) speedMul = AUG_SPEED_CAP;
@@ -772,6 +801,8 @@ function recalculatePlayerStats(player: InternalPlayer): void {
   player.critChance = Math.min(crit, AUG_CRIT_CAP);
   player.playerRadius = Math.round(PLAYER_RADIUS * radiusMul);
   player.armor = armor; player.effectiveRange = range;
+  player.lifestealPercent = lifesteal;
+  player.effectiveBulletSpeed = BULLET_SPEED * bulletSpeedMul;
   player.maxHp = player.effectiveMaxHp; player.hp = player.effectiveMaxHp;
   player.shieldGuardActive = hasAugment(player, "ShieldGuard"); player.shieldGuardCooldownMs = 0;
 }

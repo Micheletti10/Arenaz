@@ -9,9 +9,12 @@ export type AugmentTier = "Silver" | "Gold" | "Prismatic";
 export type AugmentId =
   | "AttackBoost" | "SpeedBoost" | "HpBoost" | "AttackSpeedBoost"
   | "CritChance" | "ArmorBoost" | "RangeBoostSmall"
+  | "LifestealSmall" | "BulletSpeedSmall"
   | "Multishot" | "Ricochet" | "PiercingShot" | "BouncyWall"
   | "Freeze" | "Blaze" | "RangeBoostMedium"
-  | "FrontArrow" | "SideArrows" | "DeathNova" | "ShieldGuard" | "Giant" | "Sniper";
+  | "LifestealMedium" | "BulletSpeedMedium"
+  | "FrontArrow" | "SideArrows" | "DeathNova" | "ShieldGuard" | "Giant" | "Sniper"
+  | "LifestealLarge" | "BulletSpeedLarge";
 
 export interface AugmentDefinition {
   id: AugmentId;

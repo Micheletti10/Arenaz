@@ -103,3 +103,13 @@ export const AUG_GIANT_DAMAGE_BOOST = 0.40;
 export const AUG_GIANT_HP_BOOST = 0.05;
 export const AUG_GIANT_RADIUS_MULTIPLIER = 1.35;
 export const AUG_SNIPER_RANGE = 0;
+
+// Lifesteal (% of damage dealt healed back)
+export const AUG_LIFESTEAL_SMALL = 0.10;   // Silver: 10%
+export const AUG_LIFESTEAL_MEDIUM = 0.25;  // Gold: 25%
+export const AUG_LIFESTEAL_LARGE = 0.40;   // Prismatic: 40%
+
+// Bullet Speed (multiplier on BULLET_SPEED)
+export const AUG_BULLET_SPEED_SMALL = 0.15;   // Silver: +15%
+export const AUG_BULLET_SPEED_MEDIUM = 0.35;  // Gold: +35%
+export const AUG_BULLET_SPEED_LARGE = 0.60;   // Prismatic: +60%
