@@ -14,9 +14,11 @@ export type AugmentId =
   | "Freeze" | "Blaze" | "RangeBoostMedium"
   | "LifestealMedium" | "BulletSpeedMedium"
   | "Fury" | "Grace" | "Agility"
+  | "Executioner" | "Erosion"
+  | "Dawnbringer" | "CelestialBody" | "Momentum"
   | "FrontArrow" | "ShieldGuard" | "Giant" | "Sniper"
   | "LifestealLarge" | "BulletSpeedLarge"
-  | "Rage";
+  | "Rage" | "CenterOfTheUniverse" | "FanTheHammer" | "ChainLightning";
 
 export interface AugmentDefinition {
   id: AugmentId;

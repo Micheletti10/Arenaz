@@ -43,6 +43,14 @@ import {
   AUG_LIFESTEAL_SMALL, AUG_LIFESTEAL_MEDIUM, AUG_LIFESTEAL_LARGE,
   AUG_BULLET_SPEED_SMALL, AUG_BULLET_SPEED_MEDIUM, AUG_BULLET_SPEED_LARGE,
   AUG_FURY_AS_PER_MISSING, AUG_RAGE_DMG_PER_MISSING, AUG_GRACE_REGEN_PER_MISSING, AUG_AGILITY_DODGE_PER_MISSING,
+  AUG_EXECUTIONER_THRESHOLD, AUG_EXECUTIONER_BONUS,
+  AUG_EROSION_ARMOR_REDUCE, AUG_EROSION_MAX_STACKS, AUG_EROSION_DURATION_MS,
+  AUG_DAWNBRINGER_THRESHOLD, AUG_DAWNBRINGER_HEAL_PCT,
+  AUG_CELESTIAL_HP_BOOST, AUG_CELESTIAL_DMG_PENALTY,
+  AUG_MOMENTUM_DMG_PER_SPEED,
+  AUG_CENTER_AURA_RADIUS, AUG_CENTER_AURA_DPS,
+  AUG_FAN_BULLETS, AUG_FAN_SPREAD, AUG_FAN_RANGE_PENALTY, AUG_FAN_DAMAGE_BONUS,
+  AUG_CHAIN_LIGHTNING_RANGE, AUG_CHAIN_LIGHTNING_DMG_PCT,
   ARENA_CENTER_X, ARENA_CENTER_Y, ARENA_RADIUS,
   HEAL_ORB_SMALL_AMOUNT, HEAL_ORB_LARGE_AMOUNT, HEAL_ORB_RESPAWN_MS, HEAL_ORB_PICKUP_RADIUS,
 } from "@arenaz/types/src/constants.js";
@@ -101,6 +109,15 @@ const ALL_AUGMENTS: AugmentDefinition[] = [
   { id: "Grace", name: "Grace", tier: "Gold", description: "Regen HP at low HP (scales with missing HP)", stackable: false },
   { id: "Agility", name: "Agility", tier: "Gold", description: "Dodge attacks at low HP (+0.3% per 1% missing)", stackable: false },
   { id: "Rage", name: "Rage", tier: "Prismatic", description: "Deal more damage at low HP (scales with missing HP)", stackable: false },
+  // LoL Arena-inspired
+  { id: "Executioner", name: "Executioner", tier: "Silver", description: "+20% damage to enemies below 30% HP", stackable: false },
+  { id: "Erosion", name: "Erosion", tier: "Silver", description: "Hits shred -5 armor for 3s (max -15)", stackable: false },
+  { id: "Dawnbringer", name: "Dawnbringer", tier: "Gold", description: "Heal 25% HP when dropping below 50% (once/round)", stackable: false },
+  { id: "CelestialBody", name: "Celestial Body", tier: "Gold", description: "+40% max HP, -10% damage", stackable: false },
+  { id: "Momentum", name: "Momentum", tier: "Gold", description: "+1% damage per 10 speed over base", stackable: false },
+  { id: "CenterOfTheUniverse", name: "Center of the Universe", tier: "Prismatic", description: "Aura deals 5 DPS to nearby enemies", stackable: false },
+  { id: "FanTheHammer", name: "Fan the Hammer", tier: "Prismatic", description: "Shoot 5-bullet spread, -60% range, +30% dmg", stackable: false },
+  { id: "ChainLightning", name: "Chain Lightning", tier: "Prismatic", description: "Hits zap 1 nearby enemy for 30% damage", stackable: false },
 ];
 
 // ── Internal types ──
@@ -122,6 +139,8 @@ interface InternalPlayer {
   lifestealPercent: number; effectiveBulletSpeed: number;
   shieldGuardActive: boolean; shieldGuardCooldownMs: number;
   freezeRemainingMs: number; burnRemainingMs: number; burnDamagePerTick: number;
+  erosionStacks: number; erosionTimerMs: number; // armor debuff from Erosion
+  dawnbringerUsed: boolean; // one-time heal trigger per round
 }
 
 interface InternalBullet {
@@ -294,6 +313,7 @@ function createPlayer(id: string, name: string, x: number, y: number, team: numb
     lifestealPercent: 0, effectiveBulletSpeed: BULLET_SPEED,
     shieldGuardActive: false, shieldGuardCooldownMs: 0,
     freezeRemainingMs: 0, burnRemainingMs: 0, burnDamagePerTick: 0,
+    erosionStacks: 0, erosionTimerMs: 0, dawnbringerUsed: false,
   };
 }
 
@@ -483,6 +503,7 @@ function startCombatPhase(game: ActiveGame): void {
     player.slowMultiplier = 1; player.damageFlashMs = 0;
     player.shootCooldownRemaining = 0;
     player.freezeRemainingMs = 0; player.burnRemainingMs = 0; player.burnDamagePerTick = 0;
+    player.erosionStacks = 0; player.erosionTimerMs = 0; player.dawnbringerUsed = false;
     recalculatePlayerStats(player);
   }
 }
@@ -515,6 +536,40 @@ function tickCombat(game: ActiveGame): void {
     if (hasAugment(player, "ShieldGuard") && !player.shieldGuardActive) {
       player.shieldGuardCooldownMs -= TICK_MS;
       if (player.shieldGuardCooldownMs <= 0) player.shieldGuardActive = true;
+    }
+
+    // Erosion timer decay
+    if (player.erosionTimerMs > 0) {
+      player.erosionTimerMs -= TICK_MS;
+      if (player.erosionTimerMs <= 0) player.erosionStacks = 0;
+    }
+
+    // Dawnbringer: heal when dropping below 50% HP (once per round)
+    if (hasAugment(player, "Dawnbringer") && !player.dawnbringerUsed && player.hp > 0) {
+      if (player.hp / player.maxHp < AUG_DAWNBRINGER_THRESHOLD) {
+        player.hp = Math.min(player.maxHp, player.hp + player.maxHp * AUG_DAWNBRINGER_HEAL_PCT);
+        player.dawnbringerUsed = true;
+      }
+    }
+
+    // Center of the Universe: aura damage to nearby enemies
+    if (hasAugment(player, "CenterOfTheUniverse")) {
+      for (const other of game.players.values()) {
+        if (other.id === player.id || !other.alive || other.onBye || other.team === player.team) continue;
+        const adx = other.x - player.x; const ady = other.y - player.y;
+        if (adx * adx + ady * ady <= AUG_CENTER_AURA_RADIUS * AUG_CENTER_AURA_RADIUS) {
+          other.hp -= AUG_CENTER_AURA_DPS * dt;
+          other.damageFlashMs = Math.max(other.damageFlashMs, 50);
+          if (other.hp <= 0) {
+            other.hp = 0; other.alive = false; other.deaths++;
+            game.totalDeaths.set(other.id, (game.totalDeaths.get(other.id) ?? 0) + 1);
+            player.kills++;
+            game.roundKills.set(player.id, (game.roundKills.get(player.id) ?? 0) + 1);
+            game.totalKills.set(player.id, (game.totalKills.get(player.id) ?? 0) + 1);
+            game.killFeed.push({ killerId: player.id, victimId: other.id, timestamp: now });
+          }
+        }
+      }
     }
 
     if (!player.alive) continue;
@@ -555,9 +610,25 @@ function tickCombat(game: ActiveGame): void {
         const missingPct = 1 - player.hp / player.maxHp;
         baseDmg *= 1 + missingPct * AUG_RAGE_DMG_PER_MISSING * 100;
       }
+      // Momentum: +1% damage per 10 speed over base
+      if (hasAugment(player, "Momentum")) {
+        const speedOverBase = Math.max(0, player.effectiveSpeed - BASE_PLAYER_SPEED);
+        baseDmg *= 1 + (speedOverBase / 10) * AUG_MOMENTUM_DMG_PER_SPEED;
+      }
       if (hasAugment(player, "FrontArrow")) baseDmg *= 1 - AUG_FRONT_ARROW_DAMAGE_PENALTY;
       const bounces = hasAugment(player, "BouncyWall") ? AUG_BOUNCY_WALL_BOUNCES : 0;
-      const bulletSpecs: { angle: number; damage: number }[] = [{ angle: input.aimAngle, damage: baseDmg }];
+      const bulletSpecs: { angle: number; damage: number }[] = [];
+
+      // Fan the Hammer: replace normal shot with 5-bullet spread
+      if (hasAugment(player, "FanTheHammer")) {
+        const fanDmg = baseDmg * (1 + AUG_FAN_DAMAGE_BONUS) / AUG_FAN_BULLETS;
+        for (let fi = 0; fi < AUG_FAN_BULLETS; fi++) {
+          const off = (fi - (AUG_FAN_BULLETS - 1) / 2) * (AUG_FAN_SPREAD / (AUG_FAN_BULLETS - 1));
+          bulletSpecs.push({ angle: input.aimAngle + off, damage: fanDmg });
+        }
+      } else {
+        bulletSpecs.push({ angle: input.aimAngle, damage: baseDmg });
+      }
       if (hasAugment(player, "FrontArrow")) bulletSpecs.push({ angle: input.aimAngle + 0.05, damage: baseDmg });
       const msLevel = Math.min(countAugment(player, "Multishot"), AUG_MULTISHOT_MAX_STACKS);
       if (msLevel > 0) {
@@ -778,7 +849,13 @@ function updateBullets(game: ActiveGame, dt: number, now: number): void {
           player.damageFlashMs = 80; toRemove.add(b.id); break;
         }
         let dmg = b.damage;
-        if (player.armor > 0) dmg *= ARMOR_FORMULA_CONSTANT / (ARMOR_FORMULA_CONSTANT + player.armor);
+        // Executioner: +20% damage to enemies below 30% HP
+        if (owner && hasAugment(owner, "Executioner") && player.hp / player.maxHp < AUG_EXECUTIONER_THRESHOLD) {
+          dmg *= 1 + AUG_EXECUTIONER_BONUS;
+        }
+        // Erosion: reduce effective armor by erosion stacks
+        const effectiveArmor = Math.max(0, player.armor - player.erosionStacks * AUG_EROSION_ARMOR_REDUCE);
+        if (effectiveArmor > 0) dmg *= ARMOR_FORMULA_CONSTANT / (ARMOR_FORMULA_CONSTANT + effectiveArmor);
         player.hp -= dmg; player.damageFlashMs = 150;
         if (owner) {
           owner.damageDealt += dmg;
@@ -790,6 +867,37 @@ function updateBullets(game: ActiveGame, dt: number, now: number): void {
 
         if (owner && hasAugment(owner, "Freeze")) player.freezeRemainingMs = AUG_FREEZE_DURATION_MS;
         if (owner && hasAugment(owner, "Blaze")) { player.burnRemainingMs = AUG_BLAZE_DURATION_MS; player.burnDamagePerTick = owner.effectiveDamage * AUG_BLAZE_DPS_PERCENT; }
+
+        // Erosion: stack armor shred on hit
+        if (owner && hasAugment(owner, "Erosion")) {
+          player.erosionStacks = Math.min(player.erosionStacks + 1, AUG_EROSION_MAX_STACKS);
+          player.erosionTimerMs = AUG_EROSION_DURATION_MS;
+        }
+
+        // Chain Lightning: zap 1 nearby enemy for 30% of damage
+        if (owner && hasAugment(owner, "ChainLightning")) {
+          let closest: InternalPlayer | null = null;
+          let closestDSq = AUG_CHAIN_LIGHTNING_RANGE * AUG_CHAIN_LIGHTNING_RANGE;
+          for (const other of game.players.values()) {
+            if (!other.alive || other.onBye || other.id === player.id || other.id === b.ownerId || other.team === owner.team) continue;
+            const cdx = other.x - player.x; const cdy = other.y - player.y;
+            const dSq = cdx * cdx + cdy * cdy;
+            if (dSq < closestDSq) { closestDSq = dSq; closest = other; }
+          }
+          if (closest) {
+            const chainDmg = dmg * AUG_CHAIN_LIGHTNING_DMG_PCT;
+            closest.hp -= chainDmg;
+            closest.damageFlashMs = 100;
+            owner.damageDealt += chainDmg;
+            if (closest.hp <= 0) {
+              closest.hp = 0; closest.alive = false; closest.deaths++;
+              game.totalDeaths.set(closest.id, (game.totalDeaths.get(closest.id) ?? 0) + 1);
+              owner.kills++;
+              game.roundKills.set(owner.id, (game.roundKills.get(owner.id) ?? 0) + 1);
+              game.totalKills.set(owner.id, (game.totalKills.get(owner.id) ?? 0) + 1);
+            }
+          }
+        }
 
         if (player.hp <= 0) {
           player.hp = 0; player.alive = false; player.deaths++;
@@ -837,6 +945,8 @@ function recalculatePlayerStats(player: InternalPlayer): void {
       case "BulletSpeedSmall": bulletSpeedMul += AUG_BULLET_SPEED_SMALL; break;
       case "BulletSpeedMedium": bulletSpeedMul += AUG_BULLET_SPEED_MEDIUM; break;
       case "BulletSpeedLarge": bulletSpeedMul += AUG_BULLET_SPEED_LARGE; break;
+      case "CelestialBody": hpMul += AUG_CELESTIAL_HP_BOOST; damageMul -= AUG_CELESTIAL_DMG_PENALTY; break;
+      case "FanTheHammer": range *= (1 - AUG_FAN_RANGE_PENALTY); break;
     }
   }
   if (speedMul > AUG_SPEED_CAP) speedMul = AUG_SPEED_CAP;

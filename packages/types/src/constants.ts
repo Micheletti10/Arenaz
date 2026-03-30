@@ -62,7 +62,7 @@ export const HEAL_ORB_PICKUP_RADIUS = 20;
 // ── Shooting ──
 export const BULLET_SPEED = 600;
 export const BULLET_RADIUS = 4;
-export const SHOOT_COOLDOWN_MS = 150;
+export const SHOOT_COOLDOWN_MS = 600;
 export const BASE_BULLET_RANGE = 400;
 export const ARMOR_FORMULA_CONSTANT = 100;
 
@@ -123,3 +123,30 @@ export const AUG_FURY_AS_PER_MISSING = 0.004;     // +0.4% attack speed per 1% m
 export const AUG_RAGE_DMG_PER_MISSING = 0.01;     // +1% damage per 1% missing HP (multiplicative)
 export const AUG_GRACE_REGEN_PER_MISSING = 0.001;  // 0.1% max HP/s per 1% missing HP
 export const AUG_AGILITY_DODGE_PER_MISSING = 0.003; // 0.3% dodge per 1% missing HP
+
+// LoL Arena-inspired augments
+export const AUG_EXECUTIONER_THRESHOLD = 0.30;  // below 30% HP
+export const AUG_EXECUTIONER_BONUS = 0.20;      // +20% damage
+
+export const AUG_EROSION_ARMOR_REDUCE = 5;      // -5 armor per hit
+export const AUG_EROSION_MAX_STACKS = 3;        // max -15 armor
+export const AUG_EROSION_DURATION_MS = 3000;
+
+export const AUG_DAWNBRINGER_THRESHOLD = 0.50;  // triggers at 50% HP
+export const AUG_DAWNBRINGER_HEAL_PCT = 0.25;   // heals 25% max HP
+
+export const AUG_CELESTIAL_HP_BOOST = 0.40;     // +40% max HP
+export const AUG_CELESTIAL_DMG_PENALTY = 0.10;  // -10% damage
+
+export const AUG_MOMENTUM_DMG_PER_SPEED = 0.01; // +1% damage per 10 speed over base (200)
+
+export const AUG_CENTER_AURA_RADIUS = 80;
+export const AUG_CENTER_AURA_DPS = 5;           // damage per second
+
+export const AUG_FAN_BULLETS = 5;
+export const AUG_FAN_SPREAD = 0.6;              // total spread angle in radians (~34 degrees)
+export const AUG_FAN_RANGE_PENALTY = 0.60;      // -60% range
+export const AUG_FAN_DAMAGE_BONUS = 0.30;       // +30% total damage (split across 5 bullets)
+
+export const AUG_CHAIN_LIGHTNING_RANGE = 200;
+export const AUG_CHAIN_LIGHTNING_DMG_PCT = 0.30; // 30% of original damage
