@@ -58,19 +58,19 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
 io.on("connection", (socket) => {
   console.log(`[connect] ${socket.id}`);
 
-  socket.on("createRoom", () => {
-    const room = createRoom(socket.id);
+  socket.on("createRoom", (name) => {
+    const room = createRoom(socket.id, name);
     socket.join(room.code);
     socket.emit("roomState", room);
-    console.log(`[room] ${socket.id} created room ${room.code}`);
+    console.log(`[room] ${name} (${socket.id}) created room ${room.code}`);
   });
 
-  socket.on("joinRoom", (code) => {
-    const result = joinRoom(socket.id, code);
+  socket.on("joinRoom", (code, name) => {
+    const result = joinRoom(socket.id, code, name);
     if ("error" in result) { socket.emit("error", result.error); return; }
     socket.join(result.room.code);
     io.to(result.room.code).emit("roomState", result.room);
-    console.log(`[room] ${socket.id} joined room ${code}`);
+    console.log(`[room] ${name} (${socket.id}) joined room ${code}`);
   });
 
   socket.on("selectCharacter", (character) => {

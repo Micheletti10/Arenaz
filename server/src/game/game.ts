@@ -126,7 +126,13 @@ const INPUT_STALE_MS = 150;
 
 // ── Augment definitions ──
 
-const TIER_SCHEDULE: AugmentTier[] = ["Silver", "Silver", "Gold", "Gold", "Prismatic"];
+// Augment tier is random each round (weighted: Silver 50%, Gold 35%, Prismatic 15%)
+function randomTier(): AugmentTier {
+  const roll = Math.random();
+  if (roll < 0.50) return "Silver";
+  if (roll < 0.85) return "Gold";
+  return "Prismatic";
+}
 
 const ALL_AUGMENTS: AugmentDefinition[] = [
   // Silver (stackable)
@@ -158,6 +164,7 @@ const ALL_AUGMENTS: AugmentDefinition[] = [
 
 interface InternalPlayer {
   id: string;
+  name: string;
   x: number;
   y: number;
   hp: number;
@@ -274,10 +281,11 @@ function getCharacterStats(character: CharacterType): { hp: number; speed: numbe
 
 // ── Spawns ──
 
+// Spawn points — verified to not collide with any wall at PLAYER_RADIUS
 const SPAWN_POINTS: { x: number; y: number }[] = [
-  { x: 200, y: 200 }, { x: 1400, y: 200 },
-  { x: 200, y: 600 }, { x: 1400, y: 600 },
-  { x: 200, y: 1000 }, { x: 1400, y: 1000 },
+  { x: 250, y: 400 }, { x: 1350, y: 400 },
+  { x: 250, y: 700 }, { x: 1350, y: 700 },
+  { x: 800, y: 350 }, { x: 800, y: 850 },
 ];
 
 function getInitialSpawns(playerIds: string[], teams: Map<string, Team>, mode: GameMode): Map<string, { x: number; y: number }> {
@@ -335,7 +343,7 @@ export function createGame(
   room.players.forEach((lp) => {
     const stats = getCharacterStats(lp.character!);
     const spawn = spawns.get(lp.id) ?? { x: 400, y: 400 };
-    players.set(lp.id, createInternalPlayer(lp.id, spawn.x, spawn.y, lp.character!, lp.team, stats));
+    players.set(lp.id, createInternalPlayer(lp.id, lp.name, spawn.x, spawn.y, lp.character!, lp.team, stats));
     totalKills.set(lp.id, 0);
     totalDeaths.set(lp.id, 0);
     roundKills.set(lp.id, 0);
@@ -360,7 +368,7 @@ export function createGame(
     playerDraftCards: new Map(),
     playerCardRerolls: new Map(),
     draftSelections: new Map(),
-    draftTier: TIER_SCHEDULE[0],
+    draftTier: "Silver",
     roundKills,
     totalKills,
     totalDeaths,
@@ -379,12 +387,12 @@ export function createGame(
 }
 
 function createInternalPlayer(
-  id: string, x: number, y: number,
+  id: string, name: string, x: number, y: number,
   character: CharacterType, team: Team,
   stats: { hp: number; speed: number; damage: number }
 ): InternalPlayer {
   return {
-    id, x, y,
+    id, name, x, y,
     hp: stats.hp, maxHp: stats.hp,
     character, team,
     aimAngle: 0, alive: true,
@@ -496,7 +504,7 @@ export function isGameActive(roomCode: string): boolean {
 
 function startDraftPhase(game: ActiveGame): void {
   game.phase = "draft";
-  game.draftTier = TIER_SCHEDULE[game.roundNumber - 1] ?? "Silver";
+  game.draftTier = randomTier();
   game.draftTimeRemainingMs = DRAFT_DURATION_MS;
   game.draftSelections = new Map();
   game.playerDraftCards = new Map();
@@ -930,6 +938,7 @@ function endMatch(game: ActiveGame): void {
   const data: GameOverData = {
     players: Array.from(game.players.values()).map((p) => ({
       id: p.id,
+      name: p.name,
       character: p.character,
       team: p.team,
       kills: game.totalKills.get(p.id) ?? 0,
@@ -982,24 +991,25 @@ function useAbility(player: InternalPlayer, game: ActiveGame): void {
 
     case "Phantom": {
       const input = player.input;
+      const pr = player.playerRadius;
+      const minX = WALL_THICKNESS + pr + 2;
+      const maxX = MAP_WIDTH - WALL_THICKNESS - pr - 2;
+      const minY = WALL_THICKNESS + pr + 2;
+      const maxY = MAP_HEIGHT - WALL_THICKNESS - pr - 2;
+
       let blinkAngle: number;
       if (input.dx !== 0 || input.dy !== 0) blinkAngle = Math.atan2(input.dy, input.dx);
       else blinkAngle = input.aimAngle;
 
-      let targetX = player.x + Math.cos(blinkAngle) * PHANTOM_BLINK_DISTANCE;
-      let targetY = player.y + Math.sin(blinkAngle) * PHANTOM_BLINK_DISTANCE;
-      targetX = clamp(targetX, WALL_THICKNESS + PLAYER_RADIUS, MAP_WIDTH - WALL_THICKNESS - PLAYER_RADIUS);
-      targetY = clamp(targetY, WALL_THICKNESS + PLAYER_RADIUS, MAP_HEIGHT - WALL_THICKNESS - PLAYER_RADIUS);
-
-      if (!circleCollidesWalls(targetX, targetY, PLAYER_RADIUS)) {
-        player.x = targetX; player.y = targetY;
-      } else {
-        for (let frac = 0.9; frac >= 0.1; frac -= 0.1) {
-          const tx = player.x + Math.cos(blinkAngle) * PHANTOM_BLINK_DISTANCE * frac;
-          const ty = player.y + Math.sin(blinkAngle) * PHANTOM_BLINK_DISTANCE * frac;
-          if (!circleCollidesWalls(tx, ty, PLAYER_RADIUS)) {
-            player.x = tx; player.y = ty; break;
-          }
+      // Try full distance, then step back
+      for (let frac = 1.0; frac >= 0.1; frac -= 0.1) {
+        let tx = player.x + Math.cos(blinkAngle) * PHANTOM_BLINK_DISTANCE * frac;
+        let ty = player.y + Math.sin(blinkAngle) * PHANTOM_BLINK_DISTANCE * frac;
+        tx = clamp(tx, minX, maxX);
+        ty = clamp(ty, minY, maxY);
+        if (!circleCollidesWalls(tx, ty, pr)) {
+          player.x = tx; player.y = ty;
+          break;
         }
       }
       player.blinkBonusReady = true;
@@ -1284,7 +1294,7 @@ function buildGameState(game: ActiveGame): GameState {
   const players: PlayerState[] = [];
   for (const p of game.players.values()) {
     players.push({
-      id: p.id, x: p.x, y: p.y,
+      id: p.id, name: p.name, x: p.x, y: p.y,
       hp: p.hp, maxHp: p.maxHp,
       character: p.character, team: p.team,
       aimAngle: p.aimAngle, alive: p.alive,

@@ -86,6 +86,7 @@ export interface Rect {
 
 export interface PlayerState {
   id: string;
+  name: string;
   x: number;
   y: number;
   hp: number;
@@ -151,6 +152,7 @@ export interface KillFeedEntry {
 
 export interface GameOverPlayerStats {
   id: string;
+  name: string;
   character: CharacterType;
   team: Team;
   kills: number;
@@ -184,6 +186,7 @@ export interface GameState {
 
 export interface LobbyPlayer {
   id: string;
+  name: string;
   character: CharacterType | null;
   team: Team;
   isHost: boolean;
@@ -211,8 +214,8 @@ export interface ServerToClientEvents {
 }
 
 export interface ClientToServerEvents {
-  createRoom: () => void;
-  joinRoom: (code: string) => void;
+  createRoom: (name: string) => void;
+  joinRoom: (code: string, name: string) => void;
   selectCharacter: (character: CharacterType) => void;
   selectGamemode: (mode: GameMode) => void;
   assignTeam: (playerId: string, team: Team) => void;

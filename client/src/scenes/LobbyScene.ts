@@ -38,6 +38,8 @@ export class LobbyScene extends Phaser.Scene {
 
   private codeInput = "";
   private codeText!: Phaser.GameObjects.Text;
+  private nameInput = "";
+  private nameText!: Phaser.GameObjects.Text;
   private statusDot!: Phaser.GameObjects.Arc;
   private statusText!: Phaser.GameObjects.Text;
 
@@ -83,13 +85,24 @@ export class LobbyScene extends Phaser.Scene {
     this.input.keyboard!.on("keydown", (event: KeyboardEvent) => {
       if (event.key === "Escape" && this.helpOverlay) { this.closeHelp(); return; }
       if (!this.menuContainer.visible || this.helpOverlay) return;
+
+      // Name input (letters, numbers, backspace) — max 12 chars
       if (event.key === "Backspace") {
-        this.codeInput = this.codeInput.slice(0, -1);
+        if (this.codeInput.length > 0) {
+          this.codeInput = this.codeInput.slice(0, -1);
+        } else {
+          this.nameInput = this.nameInput.slice(0, -1);
+        }
       } else if (/^\d$/.test(event.key) && this.codeInput.length < 4) {
         this.codeInput += event.key;
+      } else if (/^[a-zA-Z]$/.test(event.key) && this.nameInput.length < 12) {
+        this.nameInput += event.key;
       }
+
       this.codeText.setText(this.codeInput.length > 0 ? this.codeInput : "____");
       this.codeText.setColor(this.codeInput.length > 0 ? WHITE : DIM);
+      this.nameText.setText(this.nameInput.length > 0 ? this.nameInput : "Enter name...");
+      this.nameText.setColor(this.nameInput.length > 0 ? WHITE : DIM);
     });
   }
 
@@ -154,12 +167,30 @@ export class LobbyScene extends Phaser.Scene {
       this.add.text(cx, cy - 100, "MULTIPLAYER ARENA", { fontSize: "12px", color: DIM, fontFamily: HEADING_FONT, letterSpacing: 6 }).setOrigin(0.5)
     );
 
+    // Name input
+    this.menuContainer.add(
+      this.add.text(cx, cy - 70, "YOUR NAME", { fontSize: "10px", color: DIM, fontFamily: HEADING_FONT }).setOrigin(0.5)
+    );
+    const nameBg = this.add.graphics();
+    nameBg.fillStyle(CARD, 1);
+    nameBg.fillRoundedRect(cx - 100, cy - 58, 200, 36, 8);
+    nameBg.fillStyle(CORAL, 1);
+    nameBg.fillRect(cx - 70, cy - 58 + 34, 140, 2);
+    this.menuContainer.add(nameBg);
+    this.nameText = this.add.text(cx, cy - 40, "Enter name...", {
+      fontSize: "16px", color: DIM, fontFamily: MONO_FONT,
+    }).setOrigin(0.5);
+    this.menuContainer.add(this.nameText);
+
     // Create Room — solid coral pill
-    this.menuContainer.add(this.makePill(cx, cy - 20, 220, 44, "Create Room", "solid", () => socket.emit("createRoom")));
+    this.menuContainer.add(this.makePill(cx, cy + 10, 220, 44, "Create Room", "solid", () => {
+      if (this.nameInput.length > 0) socket.emit("createRoom", this.nameInput);
+      else this.showError("Enter a name first");
+    }));
 
     // Divider
     this.menuContainer.add(
-      this.add.text(cx, cy + 35, "or join with code", { fontSize: "11px", color: DIM }).setOrigin(0.5)
+      this.add.text(cx, cy + 50, "or join with code", { fontSize: "11px", color: DIM }).setOrigin(0.5)
     );
 
     // Code input field
@@ -167,24 +198,24 @@ export class LobbyScene extends Phaser.Scene {
     const inputH = 42;
     const inputBg = this.add.graphics();
     inputBg.fillStyle(CARD, 1);
-    inputBg.fillRoundedRect(cx - inputW / 2, cy + 55, inputW, inputH, 8);
-    // Bottom accent line
+    inputBg.fillRoundedRect(cx - inputW / 2, cy + 70, inputW, inputH, 8);
     inputBg.fillStyle(CORAL, 1);
-    inputBg.fillRect(cx - inputW / 2 + 20, cy + 55 + inputH - 2, inputW - 40, 2);
+    inputBg.fillRect(cx - inputW / 2 + 20, cy + 70 + inputH - 2, inputW - 40, 2);
     this.menuContainer.add(inputBg);
 
-    this.codeText = this.add.text(cx, cy + 76, "____", {
+    this.codeText = this.add.text(cx, cy + 91, "____", {
       fontSize: "22px", color: DIM, fontFamily: MONO_FONT,
     }).setOrigin(0.5);
     this.menuContainer.add(this.codeText);
 
     // Join Room — outlined pill
-    this.menuContainer.add(this.makePill(cx, cy + 125, 220, 44, "Join Room", "outline", () => {
-      if (this.codeInput.length === 4) socket.emit("joinRoom", this.codeInput);
+    this.menuContainer.add(this.makePill(cx, cy + 140, 220, 44, "Join Room", "outline", () => {
+      if (this.nameInput.length === 0) { this.showError("Enter a name first"); return; }
+      if (this.codeInput.length === 4) socket.emit("joinRoom", this.codeInput, this.nameInput);
     }));
 
     // How to Play — ghost pill
-    this.menuContainer.add(this.makePill(cx, cy + 195, 160, 36, "How to Play", "ghost", () => this.openHelp()));
+    this.menuContainer.add(this.makePill(cx, cy + 210, 160, 36, "How to Play", "ghost", () => this.openHelp()));
   }
 
   // ── Pill button factory ──
@@ -315,7 +346,7 @@ export class LobbyScene extends Phaser.Scene {
     room.players.forEach((player, i) => {
       const cy2 = listY + i * 64;
       const isMe = player.id === socket.id;
-      const shortId = player.id.slice(0, 6);
+      const shortId = player.name || player.id.slice(0, 6);
 
       // Card background
       const cardGfx = this.add.graphics();

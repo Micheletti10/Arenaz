@@ -21,13 +21,13 @@ function generateCode(): string {
   return code;
 }
 
-export function createRoom(playerId: string): RoomState {
-  // Remove from old room if any
+export function createRoom(playerId: string, name: string): RoomState {
   leaveRoom(playerId);
 
   const code = generateCode();
   const host: LobbyPlayer = {
     id: playerId,
+    name: name || playerId.slice(0, 6),
     character: null,
     team: 0,
     isHost: true,
@@ -48,7 +48,8 @@ export function createRoom(playerId: string): RoomState {
 
 export function joinRoom(
   playerId: string,
-  code: string
+  code: string,
+  name: string
 ): { room: RoomState } | { error: string } {
   const room = rooms.get(code);
   if (!room) return { error: "Room not found" };
@@ -56,11 +57,11 @@ export function joinRoom(
   if (room.players.length >= MAX_PLAYERS) return { error: "Room is full" };
   if (room.players.some((p) => p.id === playerId)) return { error: "Already in room" };
 
-  // Only leave old room AFTER validation passes
   leaveRoom(playerId);
 
   const player: LobbyPlayer = {
     id: playerId,
+    name: name || playerId.slice(0, 6),
     character: null,
     team: 0,
     isHost: false,

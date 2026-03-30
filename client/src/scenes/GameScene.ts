@@ -105,6 +105,9 @@ export class GameScene extends Phaser.Scene {
   // Stats text (created once, updated per frame)
   private _statsText: Phaser.GameObjects.Text | null = null;
 
+  // Nametag text objects (reused across frames)
+  private nameTags: Map<string, Phaser.GameObjects.Text> = new Map();
+
   constructor() { super({ key: "GameScene" }); }
 
   private get sw(): number { return this.scale.width; }
@@ -429,6 +432,32 @@ export class GameScene extends Phaser.Scene {
     this.updateBulletTrails(state.bullets);
     for (const b of state.bullets) this.drawBullet(b);
     for (const p of state.players) this.drawPlayer(p, p.x, p.y);
+
+    // Nametags (world-space text above each player)
+    const activeIds = new Set(state.players.map((p) => p.id));
+    // Remove stale nametags
+    for (const [id, tag] of this.nameTags.entries()) {
+      if (!activeIds.has(id)) { tag.destroy(); this.nameTags.delete(id); }
+    }
+    // Update/create nametags
+    for (const p of state.players) {
+      if (!p.alive) {
+        const existing = this.nameTags.get(p.id);
+        if (existing) existing.setVisible(false);
+        continue;
+      }
+      let tag = this.nameTags.get(p.id);
+      if (!tag) {
+        tag = this.add.text(0, 0, "", { fontSize: "11px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(50);
+        this.hudCamera.ignore(tag);
+        this.nameTags.set(p.id, tag);
+      }
+      const R = p.playerRadius || PLAYER_RADIUS;
+      tag.setPosition(p.x, p.y - R - 24);
+      tag.setText(p.name || p.id.slice(0, 6));
+      tag.setVisible(true);
+      tag.setColor(p.id === socket.id ? "#ff6b4a" : "#ffffff");
+    }
   }
 
   private drawFloor(): void {
@@ -618,7 +647,7 @@ export class GameScene extends Phaser.Scene {
       g.lineStyle(1, HUD_BORDER, 0.3);
       g.strokeRoundedRect(10, 10, sbW, sbH, 10);
     }
-    this.scoreText.setText(sorted.map((p) => `${p.id === socket.id ? ">" : " "} ${p.id.slice(0, 6)}  ${p.kills}/${p.deaths}`).join("\n"));
+    this.scoreText.setText(sorted.map((p) => `${p.id === socket.id ? ">" : " "} ${p.name || p.id.slice(0, 6)}  ${p.kills}/${p.deaths}`).join("\n"));
 
     // TAB scoreboard
     if (this.tabKey.isDown) this.showScoreboard(state);
@@ -733,7 +762,7 @@ export class GameScene extends Phaser.Scene {
     for (const p of [...state.players].sort((a, b) => b.kills - a.kills)) {
       const im = p.id === socket.id;
       const kd = p.deaths === 0 ? p.kills.toFixed(1) : (p.kills / p.deaths).toFixed(1);
-      row((im ? ">> " : "   ") + p.id.slice(0, 6), p.character, String(p.kills), String(p.deaths), kd, String(p.damageDealt), im ? "#ffffff" : "#e0e0e0", im);
+      row((im ? ">> " : "   ") + (p.name || p.id.slice(0, 6)), p.character, String(p.kills), String(p.deaths), kd, String(p.damageDealt), im ? "#ffffff" : "#e0e0e0", im);
     }
   }
 
@@ -795,6 +824,8 @@ export class GameScene extends Phaser.Scene {
     if (this.helpBtnContainer) { this.helpBtnContainer.destroy(); this.helpBtnContainer = null; }
     if (this.scoreboardContainer) { this.scoreboardContainer.destroy(); this.scoreboardContainer = null; }
     this.bulletTrails.clear();
+    for (const tag of this.nameTags.values()) tag.destroy();
+    this.nameTags.clear();
     if (this.hudCamera) this.cameras.remove(this.hudCamera);
     socket.off("gameState");
     socket.off("draftState");
