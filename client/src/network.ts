@@ -1,7 +1,10 @@
 import { io, Socket } from "socket.io-client";
 import type { ServerToClientEvents, ClientToServerEvents } from "@arenaz/types";
 
-const SERVER_URL = "http://localhost:3001";
+// In production (served from server), connect to same origin.
+// In dev (Vite on 5173), connect to localhost:3001.
+const isDev = window.location.port === "5173";
+const SERVER_URL = isDev ? "http://localhost:3001" : window.location.origin;
 
 export const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io(
   SERVER_URL,

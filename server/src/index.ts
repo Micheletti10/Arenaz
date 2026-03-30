@@ -1,6 +1,16 @@
 import { createServer } from "http";
+import { readFileSync, existsSync } from "fs";
+import { join, extname } from "path";
 import { Server } from "socket.io";
 import type { ServerToClientEvents, ClientToServerEvents } from "@arenaz/types";
+
+// Serve static client build if it exists (for production/ngrok)
+const CLIENT_DIST = join(import.meta.dirname, "../../client/dist");
+const MIME_TYPES: Record<string, string> = {
+  ".html": "text/html", ".js": "application/javascript", ".css": "text/css",
+  ".png": "image/png", ".jpg": "image/jpeg", ".svg": "image/svg+xml",
+  ".ico": "image/x-icon", ".json": "application/json", ".woff2": "font/woff2",
+};
 import {
   createRoom,
   joinRoom,
@@ -21,8 +31,25 @@ import {
   isGameActive,
 } from "./game/game.js";
 
-const PORT = 3001;
-const httpServer = createServer();
+const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3001;
+const hasClientBuild = existsSync(CLIENT_DIST);
+
+const httpServer = createServer((req, res) => {
+  if (!hasClientBuild) { res.writeHead(404); res.end("No client build"); return; }
+
+  let filePath = join(CLIENT_DIST, req.url === "/" ? "index.html" : req.url!);
+  // SPA fallback — serve index.html for non-file paths
+  if (!existsSync(filePath)) filePath = join(CLIENT_DIST, "index.html");
+
+  try {
+    const data = readFileSync(filePath);
+    const ext = extname(filePath);
+    res.writeHead(200, { "Content-Type": MIME_TYPES[ext] || "application/octet-stream" });
+    res.end(data);
+  } catch {
+    res.writeHead(404); res.end("Not found");
+  }
+});
 
 const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
   cors: { origin: "*" },
