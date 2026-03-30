@@ -62,7 +62,7 @@ export const HEAL_ORB_PICKUP_RADIUS = 20;
 // ── Shooting ──
 export const BULLET_SPEED = 600;
 export const BULLET_RADIUS = 4;
-export const SHOOT_COOLDOWN_MS = 300;
+export const SHOOT_COOLDOWN_MS = 150;
 export const BASE_BULLET_RANGE = 400;
 export const ARMOR_FORMULA_CONSTANT = 100;
 
@@ -91,10 +91,6 @@ export const AUG_RANGE_BOOST_SMALL = 150;
 export const AUG_MULTISHOT_SPREAD = 0.12;
 export const AUG_MULTISHOT_DAMAGE_PENALTY = 0.15;
 export const AUG_MULTISHOT_SPREAD_BASE = 0.15;
-export const AUG_RICOCHET_TARGETS = 1;
-export const AUG_RICOCHET_DAMAGE_PENALTY = 0.30;
-export const AUG_RICOCHET_RANGE = 200;
-export const AUG_PIERCING_DAMAGE_PENALTY = 0.33;
 export const AUG_BOUNCY_WALL_BOUNCES = 2;
 export const AUG_BOUNCY_WALL_DAMAGE_PENALTY = 0.50;
 export const AUG_FREEZE_SLOW = 0.30;
@@ -105,10 +101,6 @@ export const AUG_RANGE_BOOST_MEDIUM = 400;
 
 // Prismatic (non-stackable)
 export const AUG_FRONT_ARROW_DAMAGE_PENALTY = 0.25;
-export const AUG_SIDE_ARROWS_ANGLE = Math.PI / 3;
-export const AUG_SIDE_ARROWS_DAMAGE_PENALTY = 0.40;
-export const AUG_DEATH_NOVA_PROJECTILES = 6;
-export const AUG_DEATH_NOVA_DAMAGE_PERCENT = 0.20;
 export const AUG_SHIELD_GUARD_COOLDOWN_MS = 8000;
 export const AUG_GIANT_DAMAGE_BOOST = 0.40;
 export const AUG_GIANT_HP_BOOST = 0.05;

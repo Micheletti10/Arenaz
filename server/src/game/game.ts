@@ -36,11 +36,9 @@ import {
   AUG_CRIT_CHANCE, AUG_CRIT_MULTIPLIER, AUG_CRIT_CAP,
   AUG_ARMOR_BOOST, AUG_RANGE_BOOST_SMALL, AUG_RANGE_BOOST_MEDIUM, AUG_SNIPER_RANGE,
   AUG_MULTISHOT_SPREAD_BASE, AUG_MULTISHOT_DAMAGE_PENALTY,
-  AUG_RICOCHET_DAMAGE_PENALTY, AUG_RICOCHET_RANGE,
-  AUG_PIERCING_DAMAGE_PENALTY, AUG_BOUNCY_WALL_BOUNCES, AUG_BOUNCY_WALL_DAMAGE_PENALTY,
+  AUG_BOUNCY_WALL_BOUNCES, AUG_BOUNCY_WALL_DAMAGE_PENALTY,
   AUG_FREEZE_SLOW, AUG_FREEZE_DURATION_MS, AUG_BLAZE_DPS_PERCENT, AUG_BLAZE_DURATION_MS,
-  AUG_FRONT_ARROW_DAMAGE_PENALTY, AUG_SIDE_ARROWS_ANGLE, AUG_SIDE_ARROWS_DAMAGE_PENALTY,
-  AUG_DEATH_NOVA_PROJECTILES, AUG_DEATH_NOVA_DAMAGE_PERCENT,
+  AUG_FRONT_ARROW_DAMAGE_PENALTY,
   AUG_SHIELD_GUARD_COOLDOWN_MS, AUG_GIANT_DAMAGE_BOOST, AUG_GIANT_HP_BOOST, AUG_GIANT_RADIUS_MULTIPLIER,
   AUG_LIFESTEAL_SMALL, AUG_LIFESTEAL_MEDIUM, AUG_LIFESTEAL_LARGE,
   AUG_BULLET_SPEED_SMALL, AUG_BULLET_SPEED_MEDIUM, AUG_BULLET_SPEED_LARGE,
@@ -81,15 +79,11 @@ const ALL_AUGMENTS: AugmentDefinition[] = [
   { id: "ArmorBoost", name: "Armor", tier: "Silver", description: "+15 armor", stackable: true },
   { id: "RangeBoostSmall", name: "Range+", tier: "Silver", description: "+150 range", stackable: true },
   { id: "Multishot", name: "Multishot", tier: "Gold", description: "+1 bullet per shot", stackable: true },
-  { id: "Ricochet", name: "Ricochet", tier: "Gold", description: "Bullets bounce to enemies", stackable: false },
-  { id: "PiercingShot", name: "Piercing", tier: "Gold", description: "Bullets pierce enemies", stackable: false },
   { id: "BouncyWall", name: "Bouncy Wall", tier: "Gold", description: "Bullets bounce off walls", stackable: false },
   { id: "Freeze", name: "Freeze", tier: "Gold", description: "Hits slow enemies", stackable: false },
   { id: "Blaze", name: "Blaze", tier: "Gold", description: "Hits burn enemies", stackable: false },
   { id: "RangeBoostMedium", name: "Extended Range", tier: "Gold", description: "+400 range", stackable: false },
   { id: "FrontArrow", name: "Front Arrow", tier: "Prismatic", description: "+1 forward bullet", stackable: false },
-  { id: "SideArrows", name: "Side Arrows", tier: "Prismatic", description: "+2 side bullets", stackable: false },
-  { id: "DeathNova", name: "Death Nova", tier: "Prismatic", description: "Kill explosions", stackable: false },
   { id: "ShieldGuard", name: "Shield Guard", tier: "Prismatic", description: "Block 1 bullet/8s", stackable: false },
   { id: "Giant", name: "Giant", tier: "Prismatic", description: "+40% dmg, bigger hitbox", stackable: false },
   { id: "Sniper", name: "Sniper", tier: "Prismatic", description: "Infinite range", stackable: false },
@@ -545,7 +539,6 @@ function tickCombat(game: ActiveGame): void {
       let baseDmg = player.effectiveDamage;
       if (hasAugment(player, "FrontArrow")) baseDmg *= 1 - AUG_FRONT_ARROW_DAMAGE_PENALTY;
       const bounces = hasAugment(player, "BouncyWall") ? AUG_BOUNCY_WALL_BOUNCES : 0;
-      const isPiercing = hasAugment(player, "PiercingShot");
       const bulletSpecs: { angle: number; damage: number }[] = [{ angle: input.aimAngle, damage: baseDmg }];
       if (hasAugment(player, "FrontArrow")) bulletSpecs.push({ angle: input.aimAngle + 0.05, damage: baseDmg });
       const msLevel = countAugment(player, "Multishot");
@@ -562,11 +555,6 @@ function tickCombat(game: ActiveGame): void {
         }
         if (hasAugment(player, "FrontArrow")) bulletSpecs.push({ angle: base + 0.05, damage: dmg });
       }
-      if (hasAugment(player, "SideArrows")) {
-        const sd = baseDmg * (1 - AUG_SIDE_ARROWS_DAMAGE_PENALTY);
-        bulletSpecs.push({ angle: input.aimAngle + AUG_SIDE_ARROWS_ANGLE, damage: sd });
-        bulletSpecs.push({ angle: input.aimAngle - AUG_SIDE_ARROWS_ANGLE, damage: sd });
-      }
       for (const spec of bulletSpecs) {
         let dmg = spec.damage;
         if (player.critChance > 0 && Math.random() < player.critChance) dmg *= AUG_CRIT_MULTIPLIER;
@@ -575,7 +563,7 @@ function tickCombat(game: ActiveGame): void {
           x: player.x + Math.cos(spec.angle) * (pr + BULLET_RADIUS + 2),
           y: player.y + Math.sin(spec.angle) * (pr + BULLET_RADIUS + 2),
           vx: Math.cos(spec.angle) * player.effectiveBulletSpeed, vy: Math.sin(spec.angle) * player.effectiveBulletSpeed,
-          damage: dmg, bouncesRemaining: bounces, piercing: isPiercing,
+          damage: dmg, bouncesRemaining: bounces, piercing: false,
           distanceTraveled: 0, maxRange: player.effectiveRange,
         });
       }
@@ -770,15 +758,6 @@ function updateBullets(game: ActiveGame, dt: number, now: number): void {
         if (owner && hasAugment(owner, "Freeze")) player.freezeRemainingMs = AUG_FREEZE_DURATION_MS;
         if (owner && hasAugment(owner, "Blaze")) { player.burnRemainingMs = AUG_BLAZE_DURATION_MS; player.burnDamagePerTick = owner.effectiveDamage * AUG_BLAZE_DPS_PERCENT; }
 
-        if (owner && hasAugment(owner, "Ricochet")) {
-          const target = findNearest(player.x, player.y, b.ownerId, player.team, game);
-          if (target) {
-            const rdx = target.x - player.x; const rdy = target.y - player.y;
-            const rLen = Math.sqrt(rdx * rdx + rdy * rdy);
-            if (rLen > 0) newBullets.push({ id: `b${bulletIdCounter++}`, ownerId: b.ownerId, x: player.x, y: player.y, vx: (rdx / rLen) * BULLET_SPEED, vy: (rdy / rLen) * BULLET_SPEED, damage: dmg * (1 - AUG_RICOCHET_DAMAGE_PENALTY), bouncesRemaining: 0, piercing: false, distanceTraveled: 0, maxRange: b.maxRange });
-          }
-        }
-
         if (player.hp <= 0) {
           player.hp = 0; player.alive = false; player.deaths++;
           game.totalDeaths.set(player.id, (game.totalDeaths.get(player.id) ?? 0) + 1);
@@ -788,15 +767,8 @@ function updateBullets(game: ActiveGame, dt: number, now: number): void {
             game.totalKills.set(owner.id, (game.totalKills.get(owner.id) ?? 0) + 1);
             game.killFeed.push({ killerId: owner.id, victimId: player.id, timestamp: now });
             if (game.killFeed.length > KILL_FEED_MAX) game.killFeed.shift();
-            if (hasAugment(owner, "DeathNova")) {
-              for (let ni = 0; ni < AUG_DEATH_NOVA_PROJECTILES; ni++) {
-                const a = (ni / AUG_DEATH_NOVA_PROJECTILES) * Math.PI * 2;
-                newBullets.push({ id: `b${bulletIdCounter++}`, ownerId: owner.id, x: player.x, y: player.y, vx: Math.cos(a) * BULLET_SPEED * 0.8, vy: Math.sin(a) * BULLET_SPEED * 0.8, damage: owner.effectiveDamage * AUG_DEATH_NOVA_DAMAGE_PERCENT, bouncesRemaining: 0, piercing: false, distanceTraveled: 0, maxRange: 300 });
-              }
-            }
           }
         }
-        if (b.piercing) { b.damage *= 1 - AUG_PIERCING_DAMAGE_PENALTY; b.piercing = false; continue; }
         toRemove.add(b.id); break;
       }
     }
@@ -805,15 +777,6 @@ function updateBullets(game: ActiveGame, dt: number, now: number): void {
   if (newBullets.length > 0) game.bullets.push(...newBullets);
 }
 
-function findNearest(x: number, y: number, excludeId: string, excludeTeam: number, game: ActiveGame): InternalPlayer | null {
-  let best: InternalPlayer | null = null; let bestD = AUG_RICOCHET_RANGE ** 2;
-  for (const p of game.players.values()) {
-    if (!p.alive || p.id === excludeId || p.team === excludeTeam) continue;
-    const d = (p.x - x) ** 2 + (p.y - y) ** 2;
-    if (d < bestD) { bestD = d; best = p; }
-  }
-  return best;
-}
 
 // ── Augment helpers ──
 function hasAugment(p: InternalPlayer, id: AugmentId): boolean { return p.augments.includes(id); }

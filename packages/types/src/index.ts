@@ -10,10 +10,10 @@ export type AugmentId =
   | "AttackBoost" | "SpeedBoost" | "HpBoost" | "AttackSpeedBoost"
   | "CritChance" | "ArmorBoost" | "RangeBoostSmall"
   | "LifestealSmall" | "BulletSpeedSmall"
-  | "Multishot" | "Ricochet" | "PiercingShot" | "BouncyWall"
+  | "Multishot" | "BouncyWall"
   | "Freeze" | "Blaze" | "RangeBoostMedium"
   | "LifestealMedium" | "BulletSpeedMedium"
-  | "FrontArrow" | "SideArrows" | "DeathNova" | "ShieldGuard" | "Giant" | "Sniper"
+  | "FrontArrow" | "ShieldGuard" | "Giant" | "Sniper"
   | "LifestealLarge" | "BulletSpeedLarge";
 
 export interface AugmentDefinition {
