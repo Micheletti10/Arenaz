@@ -156,66 +156,72 @@ export class LobbyScene extends Phaser.Scene {
     const cy = this.cameras.main.centerY;
 
     // Title with glow pulse
-    const title = this.add.text(cx, cy - 150, "ARENAZ", {
+    let y = cy - 190;
+    const title = this.add.text(cx, y, "ARENAZ", {
       fontSize: "56px", color: CORAL_HEX, fontStyle: "bold", fontFamily: HEADING_FONT,
     }).setOrigin(0.5);
     this.menuContainer.add(title);
     this.tweens.add({ targets: title, alpha: { from: 1, to: 0.7 }, duration: 2000, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+    y += 50;
 
-    // Subtitle
     this.menuContainer.add(
-      this.add.text(cx, cy - 100, "MULTIPLAYER ARENA", { fontSize: "12px", color: DIM, fontFamily: HEADING_FONT, letterSpacing: 6 }).setOrigin(0.5)
+      this.add.text(cx, y, "MULTIPLAYER ARENA", { fontSize: "12px", color: DIM, fontFamily: HEADING_FONT, letterSpacing: 6 }).setOrigin(0.5)
     );
+    y += 35;
 
-    // Name input
+    // ── Name input (prominent, first thing) ──
     this.menuContainer.add(
-      this.add.text(cx, cy - 70, "YOUR NAME", { fontSize: "10px", color: DIM, fontFamily: HEADING_FONT }).setOrigin(0.5)
+      this.add.text(cx, y, "YOUR NAME", { fontSize: "13px", color: CORAL_HEX, fontStyle: "bold", fontFamily: HEADING_FONT }).setOrigin(0.5)
     );
+    y += 22;
     const nameBg = this.add.graphics();
     nameBg.fillStyle(CARD, 1);
-    nameBg.fillRoundedRect(cx - 100, cy - 58, 200, 36, 8);
-    nameBg.fillStyle(CORAL, 1);
-    nameBg.fillRect(cx - 70, cy - 58 + 34, 140, 2);
+    nameBg.fillRoundedRect(cx - 110, y - 4, 220, 40, 10);
+    nameBg.lineStyle(2, CORAL, 0.6);
+    nameBg.strokeRoundedRect(cx - 110, y - 4, 220, 40, 10);
     this.menuContainer.add(nameBg);
-    this.nameText = this.add.text(cx, cy - 40, "Enter name...", {
-      fontSize: "16px", color: DIM, fontFamily: MONO_FONT,
+    this.nameText = this.add.text(cx, y + 16, "Enter name...", {
+      fontSize: "18px", color: DIM, fontFamily: MONO_FONT,
     }).setOrigin(0.5);
     this.menuContainer.add(this.nameText);
+    y += 55;
 
-    // Create Room — solid coral pill
-    this.menuContainer.add(this.makePill(cx, cy + 10, 220, 44, "Create Room", "solid", () => {
+    // Create Room
+    this.menuContainer.add(this.makePill(cx, y, 220, 44, "Create Room", "solid", () => {
       if (this.nameInput.length > 0) socket.emit("createRoom", this.nameInput);
       else this.showError("Enter a name first");
     }));
+    y += 45;
 
     // Divider
     this.menuContainer.add(
-      this.add.text(cx, cy + 50, "or join with code", { fontSize: "11px", color: DIM }).setOrigin(0.5)
+      this.add.text(cx, y, "or join with code", { fontSize: "11px", color: DIM }).setOrigin(0.5)
     );
+    y += 24;
 
     // Code input field
-    const inputW = 180;
-    const inputH = 42;
+    const inputW = 180; const inputH = 42;
     const inputBg = this.add.graphics();
     inputBg.fillStyle(CARD, 1);
-    inputBg.fillRoundedRect(cx - inputW / 2, cy + 70, inputW, inputH, 8);
+    inputBg.fillRoundedRect(cx - inputW / 2, y, inputW, inputH, 8);
     inputBg.fillStyle(CORAL, 1);
-    inputBg.fillRect(cx - inputW / 2 + 20, cy + 70 + inputH - 2, inputW - 40, 2);
+    inputBg.fillRect(cx - inputW / 2 + 20, y + inputH - 2, inputW - 40, 2);
     this.menuContainer.add(inputBg);
-
-    this.codeText = this.add.text(cx, cy + 91, "____", {
+    this.codeText = this.add.text(cx, y + 21, "____", {
       fontSize: "22px", color: DIM, fontFamily: MONO_FONT,
     }).setOrigin(0.5);
     this.menuContainer.add(this.codeText);
+    y += 55;
 
-    // Join Room — outlined pill
-    this.menuContainer.add(this.makePill(cx, cy + 140, 220, 44, "Join Room", "outline", () => {
+    // Join Room
+    this.menuContainer.add(this.makePill(cx, y, 220, 44, "Join Room", "outline", () => {
       if (this.nameInput.length === 0) { this.showError("Enter a name first"); return; }
       if (this.codeInput.length === 4) socket.emit("joinRoom", this.codeInput, this.nameInput);
     }));
+    y += 55;
 
-    // How to Play — ghost pill
-    this.menuContainer.add(this.makePill(cx, cy + 210, 160, 36, "How to Play", "ghost", () => this.openHelp()));
+    // How to Play
+    this.menuContainer.add(this.makePill(cx, y, 160, 36, "How to Play", "ghost", () => this.openHelp()));
   }
 
   // ── Pill button factory ──
