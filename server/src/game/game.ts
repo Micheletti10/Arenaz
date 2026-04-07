@@ -121,7 +121,7 @@ const ALL_AUGMENTS: AugmentDefinition[] = [
 ];
 
 // ── Internal types ──
-interface InternalPlayer {
+export interface InternalPlayer {
   id: string; name: string;
   x: number; y: number; hp: number; maxHp: number;
   team: number; level: number;
@@ -198,7 +198,7 @@ const activeGames: Map<string, ActiveGame> = new Map();
 let bulletIdCounter = 0;
 
 // ── Stats ──
-function getStatsForLevel(level: number): { hp: number; speed: number; damage: number } {
+export function getStatsForLevel(level: number): { hp: number; speed: number; damage: number } {
   const lvl = Math.min(level, MAX_LEVEL);
   return {
     hp: BASE_PLAYER_HP + HP_PER_LEVEL * (lvl - 1),
@@ -297,7 +297,7 @@ export function createGame(
   activeGames.set(room.code, game);
 }
 
-function createPlayer(id: string, name: string, x: number, y: number, team: number, stats: { hp: number; speed: number; damage: number }): InternalPlayer {
+export function createPlayer(id: string, name: string, x: number, y: number, team: number, stats: { hp: number; speed: number; damage: number }): InternalPlayer {
   return {
     id, name, x, y, hp: stats.hp, maxHp: stats.hp, team, level: 1,
     aimAngle: 0, alive: true, onBye: false,
@@ -920,10 +920,10 @@ function updateBullets(game: ActiveGame, dt: number, now: number): void {
 
 
 // ── Augment helpers ──
-function hasAugment(p: InternalPlayer, id: AugmentId): boolean { return p.augments.includes(id); }
-function countAugment(p: InternalPlayer, id: AugmentId): number { return p.augments.filter((a) => a === id).length; }
+export function hasAugment(p: { augments: AugmentId[] }, id: AugmentId): boolean { return p.augments.includes(id); }
+export function countAugment(p: { augments: AugmentId[] }, id: AugmentId): number { return p.augments.filter((a) => a === id).length; }
 
-function recalculatePlayerStats(player: InternalPlayer): void {
+export function recalculatePlayerStats(player: InternalPlayer): void {
   const base = getStatsForLevel(player.level);
   let speedMul = 1, damageMul = 1, hpMul = 1, asMul = 1, crit = 0, radiusMul = 1, armor = 0, range = BASE_BULLET_RANGE;
   let lifesteal = 0, bulletSpeedMul = 1;
@@ -967,7 +967,7 @@ function recalculatePlayerStats(player: InternalPlayer): void {
 }
 
 // ── Collision ──
-function circleCollidesWalls(cx: number, cy: number, r: number): boolean {
+export function circleCollidesWalls(cx: number, cy: number, r: number): boolean {
   // Check circular arena boundary (player must stay INSIDE the arena)
   const dx = cx - ARENA_CENTER_X;
   const dy = cy - ARENA_CENTER_Y;
@@ -976,7 +976,7 @@ function circleCollidesWalls(cx: number, cy: number, r: number): boolean {
   return getCollidingWall(cx, cy, r) !== null;
 }
 
-function getCollidingWall(cx: number, cy: number, r: number): Rect | null {
+export function getCollidingWall(cx: number, cy: number, r: number): Rect | null {
   for (const w of walls) {
     const nx = clamp(cx, w.x, w.x + w.w); const ny = clamp(cy, w.y, w.y + w.h);
     const dx = cx - nx; const dy = cy - ny;
@@ -985,7 +985,7 @@ function getCollidingWall(cx: number, cy: number, r: number): Rect | null {
   return null;
 }
 
-function bounceBullet(b: InternalBullet, w: Rect): void {
+export function bounceBullet(b: InternalBullet, w: Rect): void {
   const dL = Math.abs(b.x - w.x); const dR = Math.abs(b.x - (w.x + w.w));
   const dT = Math.abs(b.y - w.y); const dB = Math.abs(b.y - (w.y + w.h));
   const min = Math.min(dL, dR, dT, dB);
@@ -993,7 +993,7 @@ function bounceBullet(b: InternalBullet, w: Rect): void {
   else { b.vy = -b.vy; b.y = min === dT ? w.y - BULLET_RADIUS - 1 : w.y + w.h + BULLET_RADIUS + 1; }
 }
 
-function clamp(v: number, min: number, max: number): number { return Math.max(min, Math.min(max, v)); }
+export function clamp(v: number, min: number, max: number): number { return Math.max(min, Math.min(max, v)); }
 function shuffleArray<T>(arr: T[]): T[] { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; }
 
 // ── Build client state ──
